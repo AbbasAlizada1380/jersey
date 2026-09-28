@@ -28,7 +28,6 @@ import {
   updatePackageLocation,
 } from "../services/packageService";
 import SearchBar from "../searching/SearchBar";
-import UpdatePackageTracking from "./UpdatePackageTracking";
 import Pagination from "../pagination/Pagination";
 
 const PackageList = ({

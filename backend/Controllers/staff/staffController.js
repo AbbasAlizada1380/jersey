@@ -1,4 +1,4 @@
-import Staff from "../Models/staff/staff.js";
+import Staff from "../../Models/staff/staff.js";
 
 /* =========================
    CREATE STAFF

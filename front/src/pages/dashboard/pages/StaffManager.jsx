@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { FaEdit, FaTrash, FaSpinner } from "react-icons/fa";
 import { useSelector } from "react-redux";
+import AddSalaryList from "./AddSalaryList";
+import SalaryLists from "./SalaryLists";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
@@ -421,6 +423,8 @@ const StaffManager = () => {
           </div>
         )}
       </div>
+
+      <SalaryLists/>
     </div>
   );
 };

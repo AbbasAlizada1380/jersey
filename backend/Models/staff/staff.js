@@ -44,6 +44,20 @@ const Staff = sequelize.define(
       },
       comment: "Number of working days per week",
     },
+    loan: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: false,
+      defaultValue: 0,
+      validate: {
+        min: 0,
+      },
+      comment: "Outstanding loan balance owed by the staff member",
+    },
+       isActive: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true,
+    },
   },
   {
     timestamps: true,

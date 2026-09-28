@@ -1,4 +1,5 @@
 import express from "express";
+import "./Models/index.js";
 import bodyParser from "body-parser";
 import cors from "cors";
 import multer from "multer";
@@ -13,7 +14,9 @@ import TransitWayRouter from "./routes/TransitWayRouter.js";
 import ZoneRouter from "./routes/ZoneRouter.js";
 import PriceListRouter from "./routes/PriceListRouter.js";
 import ExpenseRoute from "./routes/ExpenseRoute.js";
-import StaffRoute from "./routes/StaffRoute.js";
+import StaffRoute from "./routes/staff/StaffRoute.js";
+import salaryRoute from "./routes/staff/salary/salaryListRouter.js";
+import attendanceRoute from "./routes/staff/salary/attendanceRouter.js";
 const FRONT_URL = process.env.FRONT_URL;
 const port = 8038;
 const app = express();
@@ -63,9 +66,9 @@ app.use("/users", userRout);
 app.use("/staff", StaffRoute);
 app.use("/report", PackageReportRouter);
 app.use("/packages", packageRouter);
-app.use("/transitWay", TransitWayRouter);
+app.use("/attendance", attendanceRoute);
 app.use("/zone", ZoneRouter);
-app.use("/priceList", PriceListRouter);
+app.use("/salary-lists",salaryRoute);
 app.use("/expense", ExpenseRoute);
 
 // Sync database and start server
