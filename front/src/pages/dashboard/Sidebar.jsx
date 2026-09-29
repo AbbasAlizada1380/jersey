@@ -88,8 +88,8 @@ const Sidebar = ({ setActiveComponent, setIsMobileOpen, isMobileOpen }) => {
     //   icon: <HiOutlineTruck />,
     // },
     {
-      name: "لیست کارمندان",
-      value: "Staffs",
+      name: "معاشات",
+      value: "ُSalaries",
       icon: <BsCurrencyDollar />,
     },
     {
@@ -194,7 +194,7 @@ const Sidebar = ({ setActiveComponent, setIsMobileOpen, isMobileOpen }) => {
               />
             </div>
             <span className="text-2xl font-semibold text-amber-500 whitespace-nowrap">
-             کارگوی شما
+          خیاطی شما
             </span>
           </header>
         )}

@@ -9,7 +9,8 @@ import ZoneManager from "./pages/management/ZoneManager";
 import TransitWayManager from "./pages/management/TranistWayManager";
 import PriceListManager from "./pages/management/PriceList";
 import Pack from "./pages/pack";
-import StaffManager from "./pages/StaffManager.jsx";
+import StaffManager from "./pages/salary/StaffManager.jsx";
+import Salary from "./pages/salary/Salary.jsx";
 const MainContent = ({ activeComponent }) => {
   const renderContent = () => {
     switch (activeComponent) {
@@ -19,8 +20,8 @@ const MainContent = ({ activeComponent }) => {
         return <ZoneManager />;
       case "TransitWayManagement":
         return <TransitWayManager />;
-      case "Staffs":
-        return <StaffManager />;
+      case "ُSalaries":
+        return <Salary />;
       case "ExpenseManager":
         return <ExpenseManager />;
       case "BlockManager":

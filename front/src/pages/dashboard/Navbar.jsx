@@ -104,8 +104,8 @@ const Navbar = ({ setActiveComponent, setIsMobileOpen, isMobileOpen }) => {
               <MdDashboard size={20} className="text-white" />
             </div>
             <div className="">
-              <h1 className="text-lg font-bold text-gray-800">  کارگوی شما</h1>
-              <p className="text-xs text-gray-500">سیستم مدیریت کارگوی شما</p>
+              <h1 className="text-lg font-bold text-gray-800">  خیاطی شما</h1>
+              <p className="text-xs text-gray-500">سیستم مدیریت خیاطی شما</p>
             </div>
           </div>
         </div>

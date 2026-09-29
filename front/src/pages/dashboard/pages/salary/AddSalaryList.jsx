@@ -77,7 +77,7 @@ export default function AddSalaryList({ onSuccess, onCancel }) {
       : "بازه تاریخی انتخاب نشده";
 
   return (
-    <div className="min-h-screen p-4 md:p-6 print:p-0">
+    <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden print:p-0">
       {/* Success Toast */}
       {successMessage && (
         <div className="fixed top-4 right-4 left-4 md:left-auto md:w-96 z-50 animate-slideDown">
@@ -99,35 +99,34 @@ export default function AddSalaryList({ onSuccess, onCancel }) {
       )}
 
       {/* Header */}
-      <div className="bg-white relative rounded-md p-6 print:shadow-none print:border-b">
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
-          <div className="flex items-center gap-3 mb-4 md:mb-0">
-            <div className="p-3 bg-primary/20 rounded-md">
-              <FaFileInvoiceDollar className="text-primary text-2xl" />
+      <div className="bg-gradient-to-r from-primary to-primary/80 text-white p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-white/20 rounded-full">
+              <FaFileInvoiceDollar className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                افزودن لیست معاش جدید
-              </h1>
-              <p className="text-sm text-gray-500">
+              <h2 className="text-lg font-bold">افزودن لیست معاش جدید</h2>
+              <p className="text-sm text-white/80">
                 نام و بازه تاریخی لیست را مشخص کنید
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 print:hidden">
-            {onCancel && (
-              <button
-                onClick={onCancel}
-                className="p-2.5 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
-                title="بستن"
-              >
-                <FaTimes />
-              </button>
-            )}
-          </div>
+          {onCancel && (
+            <button
+              onClick={onCancel}
+              className="p-2 hover:bg-white/20 rounded-lg transition-colors print:hidden"
+              title="بستن"
+            >
+              <FaTimes />
+            </button>
+          )}
         </div>
+      </div>
 
+      {/* Content */}
+      <div className="p-6">
         {/* Error */}
         {error && (
           <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -178,7 +177,7 @@ export default function AddSalaryList({ onSuccess, onCancel }) {
             </div>
           </div>
 
-          {/* Preview Card */}
+          {/* Preview Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
               <p className="text-xs text-gray-500 mb-1">نام لیست</p>
@@ -186,9 +185,9 @@ export default function AddSalaryList({ onSuccess, onCancel }) {
                 {name.trim() || "—"}
               </p>
             </div>
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-              <p className="text-xs text-blue-600 mb-1">بازه</p>
-              <p className="text-lg font-bold text-blue-700" dir="ltr">
+            <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
+              <p className="text-xs text-primary mb-1">بازه</p>
+              <p className="text-lg font-bold text-primary" dir="ltr">
                 {rangePreview}
               </p>
             </div>
