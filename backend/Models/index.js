@@ -5,6 +5,27 @@ import sequelize from "../dbconnection.js";
 import Staff from "./staff/staff.js";
 import SalaryList from "./staff/salary/salaryList.js";
 import Attendance from "./staff/salary/Attendence.js";
+import Bill from "./orders/Bill.js";
+import Order from "./orders/Order.js";
+import Customer from "./Customers.js";
+
+/* ---------- Bill <-> Order ----------
+   A bill has many orders.
+   Each order belongs to one bill (nullable — an order may exist before being attached).
+*/
+Bill.hasMany(Order, {
+  foreignKey: "billNumber",
+  as: "orders",
+  onUpdate: "CASCADE",
+  onDelete: "SET NULL",
+});
+
+Order.belongsTo(Bill, {
+  foreignKey: "billNumber",
+  as: "bill",
+  onUpdate: "CASCADE",
+  onDelete: "SET NULL",
+});
 // ✅ KEEP: SalaryList <-> Attendance
 SalaryList.hasMany(Attendance, {
   foreignKey: "list",
@@ -39,6 +60,9 @@ export {
   Staff,
   SalaryList,
   Attendance,
+  Bill,
+  Order,
+  Customer
 };
 
 export default {
@@ -46,4 +70,7 @@ export default {
   Staff,
   SalaryList,
   Attendance,
+  Bill,
+  Order,
+  Customer
 };

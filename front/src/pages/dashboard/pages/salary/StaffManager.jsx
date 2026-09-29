@@ -11,6 +11,7 @@ import {
 } from "react-icons/fa";
 import { useSelector } from "react-redux";
 import AddStaff from "./AddStaff";
+import Customers from "../Customers";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
@@ -377,6 +378,7 @@ const StaffManager = () => {
           </div>
         </div>
       )}
+     < Customers/>
     </div>
   );
 };
