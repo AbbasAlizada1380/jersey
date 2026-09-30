@@ -7,8 +7,23 @@ import SalaryList from "./staff/salary/salaryList.js";
 import Attendance from "./staff/salary/Attendence.js";
 import Bill from "./orders/Bill.js";
 import Order from "./orders/Order.js";
-import Customer from "./Customers.js";
+import Customer from "./Customer.js";
+import Receipt from "./orders/Receipt.js";
 
+/* ---------- Customer <-> Receipt ---------- */
+Customer.hasMany(Receipt, {
+  foreignKey: "customer",
+  as: "receipts",
+  onUpdate: "CASCADE",
+  onDelete: "SET NULL",
+});
+
+Receipt.belongsTo(Customer, {
+  foreignKey: "customer",
+  as: "customerInfo",
+  onUpdate: "CASCADE",
+  onDelete: "SET NULL",
+});
 /* ---------- Bill <-> Order ----------
    A bill has many orders.
    Each order belongs to one bill (nullable — an order may exist before being attached).
@@ -62,7 +77,8 @@ export {
   Attendance,
   Bill,
   Order,
-  Customer
+  Customer,
+  Receipt
 };
 
 export default {
@@ -72,5 +88,6 @@ export default {
   Attendance,
   Bill,
   Order,
-  Customer
+  Customer,
+  Receipt
 };

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
-import Pagination from "../pagination/Pagination";
+import Pagination from "../../pagination/Pagination.jsx";
 import {
   FaUsers,
   FaPlus,
@@ -10,9 +10,13 @@ import {
   FaBan,
   FaTimes,
   FaSpinner,
+  FaFileInvoiceDollar,
+  FaChevronDown,
+  FaChevronUp,
 } from "react-icons/fa";
 import { useSelector } from "react-redux";
-
+import CustomerBills from "./CustomerBills";
+import CustomerBillsFilter from "./CustomerBillsFilter";
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 const limit = 20;
 
@@ -28,11 +32,21 @@ const Customers = () => {
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
 
+  /* ---------- Inline bills panel state ---------- */
+  const [billsCustomer, setBillsCustomer] = useState(null);
+
   const [form, setForm] = useState({
     fullname: "",
     phoneNumber: "",
     isActive: true,
   });
+
+  /* ---------- Open / close bills for a customer ---------- */
+  const handleToggleBills = (customer) => {
+    setBillsCustomer((prev) =>
+      prev?.id === customer.id ? null : customer
+    );
+  };
 
   /* ======================
      Fetch Customers
@@ -51,8 +65,8 @@ const Customers = () => {
     } catch (err) {
       setError(
         err?.response?.data?.message ||
-          err.message ||
-          "خطا در دریافت مشتریان"
+        err.message ||
+        "خطا در دریافت مشتریان"
       );
     } finally {
       setLoading(false);
@@ -89,8 +103,8 @@ const Customers = () => {
     } catch (err) {
       setError(
         err?.response?.data?.message ||
-          err.message ||
-          "خطا در ذخیره اطلاعات"
+        err.message ||
+        "خطا در ذخیره اطلاعات"
       );
     } finally {
       setSubmitting(false);
@@ -118,14 +132,15 @@ const Customers = () => {
 
     try {
       await axios.delete(`${BASE_URL}/customers/${id}`);
+      if (billsCustomer?.id === id) setBillsCustomer(null);
       fetchCustomers(currentPage);
       setSuccessMessage("مشتری حذف شد");
       setTimeout(() => setSuccessMessage(null), 2500);
     } catch (err) {
       setError(
         err?.response?.data?.message ||
-          err.message ||
-          "خطا در حذف مشتری"
+        err.message ||
+        "خطا در حذف مشتری"
       );
     }
   };
@@ -235,76 +250,101 @@ const Customers = () => {
                   </td>
                 </tr>
               ) : customers.length ? (
-                customers.map((c) => (
-                  <tr
-                    key={c.id}
-                    className={`hover:bg-primary/5 transition-colors ${
-                      c.isActive === false ? "opacity-60" : ""
-                    }`}
-                  >
-                    <td className="px-6 py-4">
-                      <div className="text-sm font-semibold text-primary">
-                        #{c.id}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm font-medium text-gray-900">
-                        {c.fullname}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm"
-                        dir="ltr"
-                      >
-                        {c.phoneNumber || "—"}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
-                          c.isActive
-                            ? "bg-green-100 text-green-800"
-                            : "bg-red-100 text-red-700"
-                        }`}
-                      >
-                        {c.isActive ? (
-                          <>
-                            <FaCheckCircle className="text-[10px]" />
-                            فعال
-                          </>
-                        ) : (
-                          <>
-                            <FaBan className="text-[10px]" />
-                            غیرفعال
-                          </>
-                        )}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      {currentUser?.role === "admin" ? (
-                        <div className="flex items-center justify-center gap-2">
-                          <button
-                            onClick={() => handleEdit(c)}
-                            className="p-2 text-primary hover:bg-primary/10 rounded-lg transition"
-                            title="ویرایش"
-                          >
-                            <FaEdit />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(c.id)}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
-                            title="حذف"
-                          >
-                            <FaTrash />
-                          </button>
+                customers.map((c) => {
+                  const isShowingBills = billsCustomer?.id === c.id;
+                  return (
+                    <tr
+                      key={c.id}
+                      className={`transition-colors ${isShowingBills
+                          ? "bg-primary/5"
+                          : "hover:bg-primary/5"
+                        } ${c.isActive === false ? "opacity-60" : ""}`}
+                    >
+                      <td className="px-6 py-4">
+                        <div className="text-sm font-semibold text-primary">
+                          #{c.id}
                         </div>
-                      ) : (
-                        <span className="text-gray-400 text-sm">—</span>
-                      )}
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm font-medium text-gray-900">
+                          {c.fullname}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm"
+                          dir="ltr"
+                        >
+                          {c.phoneNumber || "—"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${c.isActive
+                              ? "bg-green-100 text-green-800"
+                              : "bg-red-100 text-red-700"
+                            }`}
+                        >
+                          {c.isActive ? (
+                            <>
+                              <FaCheckCircle className="text-[10px]" />
+                              فعال
+                            </>
+                          ) : (
+                            <>
+                              <FaBan className="text-[10px]" />
+                              غیرفعال
+                            </>
+                          )}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-center gap-2">
+                          {/* Bills toggle button — always visible */}
+                          <button
+                            onClick={() => handleToggleBills(c)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 ${isShowingBills
+                                ? "bg-primary text-white hover:opacity-90"
+                                : "bg-primary/10 text-primary hover:bg-primary/20"
+                              }`}
+                            title={
+                              isShowingBills
+                                ? "بستن بل‌ها"
+                                : "مشاهده بل‌ها"
+                            }
+                          >
+                            <FaFileInvoiceDollar className="text-[11px]" />
+                            {isShowingBills ? "بستن" : "بل‌ها"}
+                            {isShowingBills ? (
+                              <FaChevronUp className="text-[9px]" />
+                            ) : (
+                              <FaChevronDown className="text-[9px]" />
+                            )}
+                          </button>
+
+                          {currentUser?.role === "admin" && (
+                            <>
+                              <button
+                                onClick={() => handleEdit(c)}
+                                className="p-2 text-primary hover:bg-primary/10 rounded-lg transition"
+                                title="ویرایش"
+                              >
+                                <FaEdit />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(c.id)}
+                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+                                title="حذف"
+                              >
+                                <FaTrash />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
                   <td colSpan="5" className="py-12 text-center">
@@ -338,6 +378,23 @@ const Customers = () => {
         )}
       </div>
 
+      {/* ============================================================
+          INLINE Customer Bills Panel
+          Renders below the table, no modal, no new window.
+          ============================================================ */}
+      {billsCustomer && (
+        <div className="animate-fadeIn">
+          <CustomerBills
+            customer={billsCustomer}
+            onClose={() => setBillsCustomer(null)}
+          />
+        </div>
+      )}
+      {billsCustomer && (
+        <div className="animate-fadeIn">
+          <CustomerBillsFilter customer={billsCustomer} />
+        </div>
+      )}
       {/* Add / Edit Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm flex items-start justify-center overflow-y-auto p-4 md:p-8">
@@ -371,7 +428,7 @@ const Customers = () => {
               </div>
             </div>
 
-            {/* Modal Content */}
+            {/* Modal Content to add customer */}
             <div className="p-6">
               {error && (
                 <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -419,11 +476,10 @@ const Customers = () => {
                   <label className="flex items-center justify-between cursor-pointer">
                     <div className="flex items-center gap-3">
                       <div
-                        className={`p-2 rounded-lg ${
-                          form.isActive
+                        className={`p-2 rounded-lg ${form.isActive
                             ? "bg-green-100 text-green-700"
                             : "bg-red-100 text-red-600"
-                        }`}
+                          }`}
                       >
                         {form.isActive ? <FaCheckCircle /> : <FaBan />}
                       </div>
@@ -467,11 +523,10 @@ const Customers = () => {
                   <button
                     type="submit"
                     disabled={submitting}
-                    className={`px-6 py-3 rounded-xl font-medium shadow-md transition flex items-center gap-2 ${
-                      submitting
+                    className={`px-6 py-3 rounded-xl font-medium shadow-md transition flex items-center gap-2 ${submitting
                         ? "bg-gray-400 cursor-not-allowed text-white"
                         : "bg-gradient-to-r from-primary to-primary/80 hover:opacity-90 text-white"
-                    }`}
+                      }`}
                   >
                     {submitting ? (
                       <>

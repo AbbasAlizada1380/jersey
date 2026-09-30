@@ -77,16 +77,16 @@ const Sidebar = ({ setActiveComponent, setIsMobileOpen, isMobileOpen }) => {
     //   value: "PackageList",
     //   icon: <FaList />,
     // },
-    // {
-    //   name: "مدیریت زون",
-    //   value: "ZoneManagement",
-    //   icon: <FaMapMarkedAlt />,
-    // },
-    // {
-    //   name: "مدیریت ترانزیت",
-    //   value: "TransitWayManagement",
-    //   icon: <HiOutlineTruck />,
-    // },
+    {
+      name: "مشتری ها",
+      value: "Customers",
+      icon: <FaMapMarkedAlt />,
+    },
+    {
+      name: "سفارشات ",
+      value: "order",
+      icon: <HiOutlineTruck />,
+    },
     {
       name: "معاشات",
       value: "ُSalaries",

@@ -1,4 +1,4 @@
-import Customer from "../Models/Customers.js";
+import {Customer} from "../Models/index.js";
 import { Op } from "sequelize";
 
 /* ===========================

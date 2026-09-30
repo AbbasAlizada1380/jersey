@@ -6,11 +6,14 @@ import AddUser from "./pages/AddUser";
 import Packages from "./pages/Packages";
 import ExpenseManager from "./pages/expense/ExpenseManages.jsx"
 import ZoneManager from "./pages/management/ZoneManager";
-import TransitWayManager from "./pages/management/TranistWayManager";
 import PriceListManager from "./pages/management/PriceList";
 import Pack from "./pages/pack";
 import StaffManager from "./pages/salary/StaffManager.jsx";
 import Salary from "./pages/salary/Salary.jsx";
+import AddBill from "./pages/order/AddBill.jsx";
+import BillsPage from "./pages/order/BillsPage.jsx";
+import Customers from "./pages/customer/Customers.jsx";
+import CustomersPage from "./pages/customer/CustomersPage.jsx";
 const MainContent = ({ activeComponent }) => {
   const renderContent = () => {
     switch (activeComponent) {
@@ -18,8 +21,8 @@ const MainContent = ({ activeComponent }) => {
         return <Dashboard />;
       case "ZoneManagement":
         return <ZoneManager />;
-      case "TransitWayManagement":
-        return <TransitWayManager />;
+      case "order":
+        return <BillsPage />;
       case "ُSalaries":
         return <Salary />;
       case "ExpenseManager":
@@ -38,8 +41,8 @@ const MainContent = ({ activeComponent }) => {
         return <ServiceManager />;
       case "Fees":
         return <Fees />;
-      case "Packages":
-        return <Packages />;
+      case "Customers":
+        return <CustomersPage />;
       case "PackageList":
         return <Pack />;
       case "AddUser":
