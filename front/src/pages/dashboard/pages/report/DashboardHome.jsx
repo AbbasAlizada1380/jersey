@@ -28,6 +28,7 @@ import { useSelector } from "react-redux";
 import PackageDownload from "./OrderDownload.jsx";
 import RemainingPackages from "../RemainingPackages.jsx";
 import RunReportDownload from "./RunReportDownload.jsx";
+import ReceiptsManager from "../order/ReceiptsManager.jsx";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
@@ -282,53 +283,8 @@ const DashboardHome = () => {
 			</div>
 
 			{/* Stats Grid */}
-			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 mb-8">
-				{visibleCards.map((card, index) => {
-					const isRemainingCard = card.title === "مانده حساب";
-
-					return (
-						<div
-							key={index}
-							onClick={
-								isRemainingCard
-									? () => setShowModel((prev) => !prev)
-									: undefined
-							}
-							className={`
-        bg-white rounded-md shadow-md border border-gray-100 overflow-hidden
-        transition-all duration-300 transform
-        ${
-					isRemainingCard
-						? "cursor-pointer hover:shadow-xl hover:-translate-y-1"
-						: "cursor-default"
-				}
-      `}
-						>
-							<div className="p-1 bg-gradient-to-r">
-								<div className="bg-white rounded-2xl p-5">
-									<div className="flex items-start justify-between mb-4">
-										<div className="p-3 rounded-xl bg-primary">
-											<card.icon className="text-xl text-white" />
-										</div>
-
-										<span className="text-sm font-semibold text-gray-600 p-2 rounded-full">
-											{card.trend}
-										</span>
-									</div>
-
-									<div className="mb-3">
-										<div className="text-2xl font-bold text-gray-900">
-											{card.value}
-										</div>
-										<p className="text-sm text-gray-600 mt-1">
-											{card.description}
-										</p>
-									</div>
-								</div>
-							</div>
-						</div>
-					);
-				})}
+			<div className="grid grid-cols-1 sm:grid-cols-2  gap-5 mb-8">
+				<ReceiptsManager/>
 			</div>
 			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 mb-8">
 				{reportData.locations.map((card, index) => {
