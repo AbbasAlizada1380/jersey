@@ -9,7 +9,22 @@ import Bill from "./orders/Bill.js";
 import Order from "./orders/Order.js";
 import Customer from "./Customer.js";
 import Receipt from "./orders/Receipt.js";
+import Holder from "./holder/Holder.js";
+import Valet from "./holder/Valet.js";
 
+Holder.hasMany(Valet, {
+  foreignKey: "holder",
+  as: "valets",
+  onUpdate: "CASCADE",
+  onDelete: "RESTRICT",
+});
+
+Valet.belongsTo(Holder, {
+  foreignKey: "holder",
+  as: "holderInfo",
+  onUpdate: "CASCADE",
+  onDelete: "RESTRICT",
+});
 /* ---------- Customer <-> Receipt ---------- */
 Customer.hasMany(Receipt, {
   foreignKey: "customer",
@@ -78,7 +93,10 @@ export {
   Bill,
   Order,
   Customer,
-  Receipt
+  Receipt,
+  Valet,
+  Holder
+
 };
 
 export default {
@@ -89,5 +107,7 @@ export default {
   Bill,
   Order,
   Customer,
-  Receipt
+  Receipt,
+  Valet,
+  Holder
 };

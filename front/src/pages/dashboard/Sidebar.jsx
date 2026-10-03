@@ -72,11 +72,11 @@ const Sidebar = ({ setActiveComponent, setIsMobileOpen, isMobileOpen }) => {
     //   value: "Packages",
     //   icon: <MdAddBox />,
     // },
-    // {
-    //   name: "لیست بسته ها",
-    //   value: "PackageList",
-    //   icon: <FaList />,
-    // },
+    {
+      name: "برداشت شرکا ",
+      value: "holders",
+      icon: <FaList />,
+    },
     {
       name: "مشتری ها",
       value: "Customers",

@@ -14,6 +14,8 @@ import AddBill from "./pages/order/AddBill.jsx";
 import BillsPage from "./pages/order/BillsPage.jsx";
 import Customers from "./pages/customer/Customers.jsx";
 import CustomersPage from "./pages/customer/CustomersPage.jsx";
+import ValetsPage from "./pages/valet/ValetsPage.jsx";
+import WalletPage from "./pages/valet/WalletPage.jsx";
 const MainContent = ({ activeComponent }) => {
   const renderContent = () => {
     switch (activeComponent) {
@@ -37,8 +39,8 @@ const MainContent = ({ activeComponent }) => {
         return <Salaries />;
       case "setting":
         return <Setting />;
-      case "ServiceManager":
-        return <ServiceManager />;
+      case "holders":
+        return <WalletPage />;
       case "Fees":
         return <Fees />;
       case "Customers":
