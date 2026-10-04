@@ -87,6 +87,7 @@ export default function ValetsPage({ refreshKey = 0, onChanged }) {
   /* ---------- filters ---------- */
   const [filterHolder, setFilterHolder] = useState("");
   const [filterType, setFilterType] = useState("");
+  const [filterSource, setFilterSource] = useState(""); // ← NEW: "valet" | "business" | ""
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [showFilters, setShowFilters] = useState(false);
@@ -129,6 +130,7 @@ export default function ValetsPage({ refreshKey = 0, onChanged }) {
         const params = { page: p, limit: LIMIT };
         if (filterHolder) params.holder = filterHolder;
         if (filterType) params.type = filterType;
+        if (filterSource) params.source = filterSource; // ← NEW
         if (from) params.from = from;
         if (to) params.to = to;
 
@@ -156,13 +158,13 @@ export default function ValetsPage({ refreshKey = 0, onChanged }) {
         setLoading(false);
       }
     },
-    [filterHolder, filterType, from, to]
+    [filterHolder, filterType, filterSource, from, to]
   );
 
   useEffect(() => {
     fetchValets(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterHolder, filterType, from, to, refreshKey]);
+  }, [filterHolder, filterType, filterSource, from, to, refreshKey]);
 
   /* ---------------- form handlers ---------------- */
   const resetForm = () => {
@@ -273,11 +275,13 @@ export default function ValetsPage({ refreshKey = 0, onChanged }) {
   const clearFilters = () => {
     setFilterHolder("");
     setFilterType("");
+    setFilterSource(""); // ← NEW
     setFrom("");
     setTo("");
   };
 
-  const hasFilters = filterHolder || filterType || from || to;
+  const hasFilters =
+    filterHolder || filterType || filterSource || from || to;
 
   /* ---------------- print ---------------- */
   const handlePrint = async () => {
@@ -286,6 +290,7 @@ export default function ValetsPage({ refreshKey = 0, onChanged }) {
       const params = { page: 1, limit: 10000 };
       if (filterHolder) params.holder = filterHolder;
       if (filterType) params.type = filterType;
+      if (filterSource) params.source = filterSource; // ← NEW
       if (from) params.from = from;
       if (to) params.to = to;
 
@@ -308,6 +313,7 @@ export default function ValetsPage({ refreshKey = 0, onChanged }) {
         filters: {
           holderName,
           type: filterType || null,
+          source: filterSource || null, // ← pass through
           from: from || null,
           to: to || null,
         },
@@ -326,6 +332,7 @@ export default function ValetsPage({ refreshKey = 0, onChanged }) {
       const params = { page: 1, limit: 10000 };
       if (filterHolder) params.holder = filterHolder;
       if (filterType) params.type = filterType;
+      if (filterSource) params.source = filterSource; // ← NEW
       if (from) params.from = from;
       if (to) params.to = to;
 
@@ -348,6 +355,7 @@ export default function ValetsPage({ refreshKey = 0, onChanged }) {
         filters: {
           holderName,
           type: filterType || null,
+          source: filterSource || null, // ← pass through
           from: from || null,
           to: to || null,
         },
@@ -385,7 +393,6 @@ export default function ValetsPage({ refreshKey = 0, onChanged }) {
       {/* Toolbar */}
       <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-3 md:p-4">
         <div className="flex flex-col gap-3">
-          {/* Top row: title + primary actions */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-primary/20 rounded-xl flex-shrink-0">
@@ -412,6 +419,20 @@ export default function ValetsPage({ refreshKey = 0, onChanged }) {
               >
                 <FaFilter className="text-xs" />
                 <span className="hidden sm:inline">فیلترها</span>
+                {/* Small count badge for active filters */}
+                {hasFilters && (
+                  <span className="bg-white/25 text-[10px] rounded-full w-5 h-5 flex items-center justify-center">
+                    {
+                      [
+                        filterHolder,
+                        filterType,
+                        filterSource,
+                        from,
+                        to,
+                      ].filter(Boolean).length
+                    }
+                  </span>
+                )}
               </button>
 
               <button
@@ -464,7 +485,8 @@ export default function ValetsPage({ refreshKey = 0, onChanged }) {
           {/* Filter panel */}
           {showFilters && (
             <div className="pt-3 border-t border-gray-100">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                {/* Holder */}
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">
                     حامل
@@ -482,13 +504,20 @@ export default function ValetsPage({ refreshKey = 0, onChanged }) {
                     ))}
                   </select>
                 </div>
+
+                {/* Type */}
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">
                     نوع
                   </label>
                   <select
                     value={filterType}
-                    onChange={(e) => setFilterType(e.target.value)}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setFilterType(v);
+                      // Source only makes sense for withdraw
+                      if (v !== "withdraw") setFilterSource("");
+                    }}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-primary focus:border-primary"
                   >
                     <option value="">همه</option>
@@ -496,6 +525,27 @@ export default function ValetsPage({ refreshKey = 0, onChanged }) {
                     <option value="withdraw">برداشت</option>
                   </select>
                 </div>
+
+                {/* Source — enabled only when type is withdraw (or nothing) */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    منبع
+                  </label>
+                  <select
+                    value={filterSource}
+                    onChange={(e) => setFilterSource(e.target.value)}
+                    disabled={
+                      filterType !== "" && filterType !== "withdraw"
+                    }
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-primary focus:border-primary disabled:bg-gray-100 disabled:text-gray-400"
+                  >
+                    <option value="">همه</option>
+                    <option value="valet">والټ (شخصی)</option>
+                    <option value="business">کسب‌وکار</option>
+                  </select>
+                </div>
+
+                {/* From */}
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">
                     از تاریخ
@@ -507,6 +557,8 @@ export default function ValetsPage({ refreshKey = 0, onChanged }) {
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-primary focus:border-primary"
                   />
                 </div>
+
+                {/* To */}
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">
                     تا تاریخ

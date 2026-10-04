@@ -7,7 +7,7 @@ import { Op, fn, col, literal } from "sequelize";
    body: { amount, holder, type, source?, description? }
 
    Rules:
-     - deposit  → no source needed
+     - deposit  → source is forced to "valet" (in the model hook)
      - withdraw, source = "valet"    → must not exceed holder's current balance
      - withdraw, source = "business" → no balance limit
    ========================================================= */
@@ -29,7 +29,7 @@ export const createValet = async (req, res) => {
         .json({ message: "نوع تراکنش نامعتبر است (deposit یا withdraw)" });
     }
 
-    /* --- Source validation (only for withdraw) --- */
+    /* --- Source validation (withdraw only) --- */
     if (type === "withdraw") {
       if (!source) {
         return res.status(400).json({
@@ -61,7 +61,9 @@ export const createValet = async (req, res) => {
           [
             fn(
               "SUM",
-              literal("CASE WHEN type = 'deposit' THEN amount ELSE -amount END")
+              literal(
+                "CASE WHEN type = 'deposit' THEN amount ELSE -amount END"
+              )
             ),
             "balance",
           ],
@@ -79,11 +81,20 @@ export const createValet = async (req, res) => {
       }
     }
 
+    /* -------------------------------------------------------
+       Resolve source:
+         - deposit  → "valet"
+         - withdraw → whatever came from the frontend
+       The model hook also enforces this, so it stays consistent
+       even if you ever bypass this controller.
+       ------------------------------------------------------- */
+    const resolvedSource = type === "deposit" ? "valet" : source;
+
     const valet = await Valet.create({
       amount: amt,
       holder,
       type,
-      source: type === "withdraw" ? source : null,
+      source: resolvedSource,
       description: description ? String(description).trim() : null,
     });
 
@@ -104,7 +115,7 @@ export const createValet = async (req, res) => {
 
 /* =========================================================
    Get Valet entries (paginated + filters)
-   GET /api/valets?page&limit&holder&type&from&to
+   GET /api/valets?page&limit&holder&type&source&from&to
    ========================================================= */
 export const getValets = async (req, res) => {
   try {
@@ -115,6 +126,7 @@ export const getValets = async (req, res) => {
     const where = {};
     if (req.query.holder) where.holder = req.query.holder;
     if (req.query.type) where.type = req.query.type;
+    if (req.query.source) where.source = req.query.source; // ✅ new
 
     if (req.query.from || req.query.to) {
       where.createdAt = {};
@@ -195,7 +207,6 @@ export const getValets = async (req, res) => {
 
 /* =========================================================
    Get Valet by ID
-   GET /api/valets/:id
    ========================================================= */
 export const getValetById = async (req, res) => {
   try {
@@ -225,7 +236,6 @@ export const getValetById = async (req, res) => {
 
 /* =========================================================
    Get Valet entries of one Holder
-   GET /api/valets/holder/:holderId
    ========================================================= */
 export const getValetsByHolder = async (req, res) => {
   try {
@@ -267,11 +277,6 @@ export const getValetsByHolder = async (req, res) => {
 /* =========================================================
    Update Valet (full)
    PUT /api/valets/:id
-
-   Overdraft check on update:
-   - If the resulting entry is a valet withdrawal, recompute the
-     balance EXCLUDING this entry and confirm the new amount fits.
-   - Business withdrawals are always allowed.
    ========================================================= */
 export const updateValet = async (req, res) => {
   try {
@@ -315,18 +320,20 @@ export const updateValet = async (req, res) => {
       }
     }
 
-    /* Overdraft check — only when the entry is a valet withdraw */
+    /* Overdraft check — only for valet withdrawals */
     if (nextType === "withdraw" && nextSource === "valet") {
       const balanceRow = await Valet.findOne({
         where: {
           holder: nextHolder,
-          id: { [Op.ne]: valet.id }, // exclude the entry being edited
+          id: { [Op.ne]: valet.id }, // exclude the row being edited
         },
         attributes: [
           [
             fn(
               "SUM",
-              literal("CASE WHEN type = 'deposit' THEN amount ELSE -amount END")
+              literal(
+                "CASE WHEN type = 'deposit' THEN amount ELSE -amount END"
+              )
             ),
             "balance",
           ],
@@ -344,11 +351,16 @@ export const updateValet = async (req, res) => {
       }
     }
 
+    /* Resolve the source for the update:
+       - deposit → "valet"
+       - withdraw → user's choice */
+    const resolvedSource = nextType === "deposit" ? "valet" : nextSource;
+
     await valet.update({
       amount: nextAmount,
       holder: nextHolder,
       type: nextType,
-      source: nextType === "withdraw" ? nextSource : null,
+      source: resolvedSource,
       description:
         description !== undefined
           ? description
@@ -374,7 +386,6 @@ export const updateValet = async (req, res) => {
 /* =========================================================
    Partial Update
    PATCH /api/valets/:id
-   Same overdraft rules apply as for PUT.
    ========================================================= */
 export const updateValetProperties = async (req, res) => {
   try {
@@ -437,7 +448,9 @@ export const updateValetProperties = async (req, res) => {
           [
             fn(
               "SUM",
-              literal("CASE WHEN type = 'deposit' THEN amount ELSE -amount END")
+              literal(
+                "CASE WHEN type = 'deposit' THEN amount ELSE -amount END"
+              )
             ),
             "balance",
           ],
@@ -455,7 +468,8 @@ export const updateValetProperties = async (req, res) => {
       }
     }
 
-    updates.source = nextType === "withdraw" ? nextSource : null;
+    /* Same rule as create: deposit → "valet" */
+    updates.source = nextType === "deposit" ? "valet" : nextSource;
 
     await valet.update(updates);
 
@@ -475,7 +489,6 @@ export const updateValetProperties = async (req, res) => {
 
 /* =========================================================
    Delete Valet
-   DELETE /api/valets/:id
    ========================================================= */
 export const deleteValet = async (req, res) => {
   try {

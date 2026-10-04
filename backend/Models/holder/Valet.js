@@ -14,7 +14,8 @@ const Valet = sequelize.define(
       type: DataTypes.INTEGER,
       allowNull: false,
       validate: { min: 1 },
-      comment: "Amount in AFN (always positive — the type determines direction)",
+      comment:
+        "Amount in AFN (always positive — the type determines direction)",
     },
 
     holder: {
@@ -33,14 +34,16 @@ const Valet = sequelize.define(
       type: DataTypes.ENUM("withdraw", "deposit"),
       allowNull: false,
       defaultValue: "deposit",
-      comment: "withdraw = money out of the holder, deposit = money into the holder",
+      comment:
+        "withdraw = money out of the holder, deposit = money into the holder",
     },
 
     source: {
       type: DataTypes.ENUM("valet", "business"),
-      allowNull: true,
+      allowNull: false,
+      defaultValue: "valet",
       comment:
-        "Required when type='withdraw': 'valet' = paid to the valet (personal wallet), 'business' = paid to the business.",
+        "deposit → always 'valet'. withdraw → 'valet' (from the wallet) or 'business' (from a business).",
     },
 
     description: {
@@ -62,15 +65,24 @@ const Valet = sequelize.define(
 );
 
 /* =========================================================
-   Enforce: source must be set for withdraw entries.
+   Enforce the source rule:
+     - withdraw → must be "valet" or "business"
+     - deposit  → always "valet"
+   Runs on create() and save() so any write path is covered.
    ========================================================= */
 Valet.beforeValidate((valet) => {
   if (valet.type === "withdraw") {
     if (!valet.source) {
-      throw new Error("انتخاب منبع برداشت (والټ یا کسب‌وکار) الزامی است");
+      throw new Error(
+        "انتخاب منبع برداشت (والټ یا کسب‌وکار) الزامی است"
+      );
+    }
+    if (!["valet", "business"].includes(valet.source)) {
+      throw new Error("منبع نامعتبر است (valet یا business)");
     }
   } else {
-    valet.source = null;
+    /* deposit → force to "valet" regardless of what the caller sent */
+    valet.source = "valet";
   }
 });
 

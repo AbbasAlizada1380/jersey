@@ -26,7 +26,6 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { useSelector } from "react-redux";
 import PackageDownload from "./OrderDownload.jsx";
-import RemainingPackages from "../RemainingPackages.jsx";
 import RunReportDownload from "./RunReportDownload.jsx";
 import ReceiptsManager from "../order/ReceiptsManager.jsx";
 
@@ -446,15 +445,6 @@ const DashboardHome = () => {
 								</div>
 							</div>
 						</div>
-					</div>
-				</div>
-			)}
-			{showModel && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-					<div className="relative w-[95%] h-[95%] bg-white rounded-xl shadow-xl overflow-y-auto">
-						{/* Close Button */}
-
-						<RemainingPackages setShowModel={setShowModel} />
 					</div>
 				</div>
 			)}

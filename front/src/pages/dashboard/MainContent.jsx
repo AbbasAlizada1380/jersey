@@ -3,11 +3,9 @@ import Dashboard from "./pages/dashboard";
 // import S_Transaction from "./pages/RentManager";
 import Report from "./pages/reports";
 import AddUser from "./pages/AddUser";
-import Packages from "./pages/Packages";
 import ExpenseManager from "./pages/expense/ExpenseManages.jsx"
 import ZoneManager from "./pages/management/ZoneManager";
 import PriceListManager from "./pages/management/PriceList";
-import Pack from "./pages/pack";
 import StaffManager from "./pages/salary/StaffManager.jsx";
 import Salary from "./pages/salary/Salary.jsx";
 import AddBill from "./pages/order/AddBill.jsx";
