@@ -19,6 +19,7 @@ import ProfileModal from "./ProfileModal";
 import moment from "moment-jalaali";
 import { shamsiMonths } from "../../utils/dateConvert";
 
+const BRAND = import.meta.env.VITE_BRAND_NAME;
 moment.loadPersian({ usePersianDigits: true, dialect: "persian-modern" });
 
 const Navbar = ({ setActiveComponent, setIsMobileOpen, isMobileOpen }) => {
@@ -104,8 +105,8 @@ const Navbar = ({ setActiveComponent, setIsMobileOpen, isMobileOpen }) => {
               <MdDashboard size={20} className="text-white" />
             </div>
             <div className="">
-              <h1 className="text-lg font-bold text-gray-800">  خیاطی شما</h1>
-              <p className="text-xs text-gray-500">سیستم مدیریت خیاطی شما</p>
+              <h1 className="text-lg font-bold text-gray-800">    {BRAND}</h1>
+              <p className="text-xs text-gray-500">سیستم مدیریت   {BRAND}</p>
             </div>
           </div>
         </div>

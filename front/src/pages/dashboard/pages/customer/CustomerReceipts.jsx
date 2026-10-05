@@ -6,9 +6,10 @@ import {
   FaTimes,
   FaFilter,
   FaMoneyBillWave,
+  FaPrint,
 } from "react-icons/fa";
 import Pagination from "../../pagination/Pagination.jsx";
-
+import PrintBill from "./PrintBill.jsx";   // ✅ new import
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 const LIMIT = 10;
 
@@ -41,7 +42,9 @@ export default function CustomerReceipts({
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [totals, setTotals] = useState({ count: 0, totalAmount: 0 });
-
+  /* ✅ Print modal state */
+const [printReceipt, setPrintReceipt] = useState(null);
+const [printOpen, setPrintOpen] = useState(false);
   /* filter */
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -71,8 +74,8 @@ export default function CustomerReceipts({
       } catch (err) {
         setError(
           err?.response?.data?.message ||
-            err.message ||
-            "خطا در دریافت رسیدها"
+          err.message ||
+          "خطا در دریافت رسیدها"
         );
         setReceipts([]);
       } finally {
@@ -96,9 +99,8 @@ export default function CustomerReceipts({
 
   return (
     <div
-      className={`rounded-2xl border border-gray-200 bg-white overflow-hidden ${
-        compact ? "" : "shadow-sm"
-      }`}
+      className={`rounded-2xl border border-gray-200 bg-white overflow-hidden ${compact ? "" : "shadow-sm"
+        }`}
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50">
@@ -200,6 +202,7 @@ export default function CustomerReceipts({
                 <th className="px-3 py-2 text-right text-xs font-semibold text-white uppercase">
                   تاریخ و زمان
                 </th>
+                <th className="px-3 py-2 text-center text-xs font-semibold text-gray-600 uppercase">عملیات</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
@@ -233,6 +236,20 @@ export default function CustomerReceipts({
                   <td className="px-3 py-3 text-xs text-gray-500 whitespace-nowrap">
                     {formatDateTime(r.createdAt)}
                   </td>
+                  <td className="px-3 py-3">
+                    <div className="flex items-center justify-center gap-1">
+                      <button
+                        onClick={() => {
+                          setPrintReceipt(r);        // ✅ pass the receipt
+                          setPrintOpen(true);
+                        }}
+                        className="p-2 text-primary hover:bg-primary/10 rounded-lg transition"
+                        title="چاپ رسید"
+                      >
+                        <FaPrint size={14} />
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -250,6 +267,15 @@ export default function CustomerReceipts({
           />
         </div>
       )}
+<PrintBill
+  isOpen={printOpen}
+  onClose={() => {
+    setPrintOpen(false);
+    setPrintReceipt(null);
+  }}
+  receipt={printReceipt}
+  customer={customer}
+/>
     </div>
   );
 }

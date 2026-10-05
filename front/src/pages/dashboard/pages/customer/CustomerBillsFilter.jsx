@@ -7,11 +7,12 @@ import {
   FaFileInvoiceDollar,
   FaTimes,
   FaEye,
+  FaPrint,
 } from "react-icons/fa";
 import { downloadCustomerBillsPDF } from "./CustomrsBillPDF";
-
+import PrintBill from "./PrintBill";   // ✅ new import
 const BASE_URL = import.meta.env.VITE_BASE_URL;
-const LIMIT = 15;
+const LIMIT = 10;
 
 /* Status options */
 const STATUS_OPTIONS = [
@@ -58,7 +59,8 @@ export default function CustomerBillsFilter({ customer }) {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [downloading, setDownloading] = useState(false);
-
+  const [printBill, setPrintBill] = useState(null); // the bill object to print
+  const [printOpen, setPrintOpen] = useState(false);
   /* ---------- Summary of current page ---------- */
   const summary = bills.reduce(
     (acc, b) => {
@@ -101,8 +103,8 @@ export default function CustomerBillsFilter({ customer }) {
       } catch (err) {
         setError(
           err?.response?.data?.message ||
-            err.message ||
-            "خطا در دریافت بل‌ها"
+          err.message ||
+          "خطا در دریافت بل‌ها"
         );
         setBills([]);
       } finally {
@@ -209,11 +211,10 @@ export default function CustomerBillsFilter({ customer }) {
         <button
           onClick={handleDownload}
           disabled={downloading || bills.length === 0}
-          className={`px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition ${
-            downloading || bills.length === 0
-              ? "bg-white/20 text-white/60 cursor-not-allowed"
-              : "bg-white text-primary hover:bg-white/90"
-          }`}
+          className={`px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition ${downloading || bills.length === 0
+            ? "bg-white/20 text-white/60 cursor-not-allowed"
+            : "bg-white text-primary hover:bg-white/90"
+            }`}
           title="دانلود گزارش PDF"
         >
           {downloading ? (
@@ -246,11 +247,10 @@ export default function CustomerBillsFilter({ customer }) {
                 key={opt.key}
                 type="button"
                 onClick={() => toggleStatus(opt.key)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${
-                  active
-                    ? "bg-primary text-white border-primary"
-                    : `bg-white ${opt.cls} border-gray-300 hover:border-primary`
-                }`}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${active
+                  ? "bg-primary text-white border-primary"
+                  : `bg-white ${opt.cls} border-gray-300 hover:border-primary`
+                  }`}
               >
                 {opt.label}
               </button>
@@ -307,17 +307,15 @@ export default function CustomerBillsFilter({ customer }) {
             </p>
           </div>
           <div
-            className={`rounded-xl border p-3 ${
-              summary.remaining > 0
-                ? "border-red-200 bg-red-50"
-                : "border-green-200 bg-green-50"
-            }`}
+            className={`rounded-xl border p-3 ${summary.remaining > 0
+              ? "border-red-200 bg-red-50"
+              : "border-green-200 bg-green-50"
+              }`}
           >
             <p className="text-xs text-gray-500 mb-1">باقی مانده</p>
             <p
-              className={`text-base font-bold ${
-                summary.remaining > 0 ? "text-red-600" : "text-green-600"
-              }`}
+              className={`text-base font-bold ${summary.remaining > 0 ? "text-red-600" : "text-green-600"
+                }`}
             >
               {formatCurrency(summary.remaining)}
             </p>
@@ -388,11 +386,8 @@ export default function CustomerBillsFilter({ customer }) {
                         {formatCurrency(paid)}
                       </td>
                       <td
-                        className={`px-3 py-3 text-sm font-semibold ${
-                          Number(b.remaind) > 0
-                            ? "text-red-600"
-                            : "text-green-600"
-                        }`}
+                        className={`px-3 py-3 text-sm font-semibold ${Number(b.remaind) > 0 ? "text-red-600" : "text-green-600"
+                          }`}
                       >
                         {formatCurrency(b.remaind)}
                       </td>
@@ -400,6 +395,9 @@ export default function CustomerBillsFilter({ customer }) {
                       <td className="px-3 py-3 text-sm text-gray-600">
                         {formatDate(b.createdAt)}
                       </td>
+
+                      {/* ✅ Action column */}
+                      
                     </tr>
                   );
                 })}
@@ -414,11 +412,10 @@ export default function CustomerBillsFilter({ customer }) {
             <button
               onClick={() => fetchFiltered(page - 1)}
               disabled={page <= 1}
-              className={`px-3 py-1.5 rounded-lg text-sm transition ${
-                page <= 1
-                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                  : "bg-primary/10 text-primary hover:bg-primary/20"
-              }`}
+              className={`px-3 py-1.5 rounded-lg text-sm transition ${page <= 1
+                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                : "bg-primary/10 text-primary hover:bg-primary/20"
+                }`}
             >
               قبلی
             </button>
@@ -428,17 +425,24 @@ export default function CustomerBillsFilter({ customer }) {
             <button
               onClick={() => fetchFiltered(page + 1)}
               disabled={page >= totalPages}
-              className={`px-3 py-1.5 rounded-lg text-sm transition ${
-                page >= totalPages
-                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                  : "bg-primary/10 text-primary hover:bg-primary/20"
-              }`}
+              className={`px-3 py-1.5 rounded-lg text-sm transition ${page >= totalPages
+                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                : "bg-primary/10 text-primary hover:bg-primary/20"
+                }`}
             >
               بعدی
             </button>
           </div>
         )}
       </div>
+      <PrintBill
+        isOpen={printOpen}
+        onClose={() => {
+          setPrintOpen(false);
+          setPrintBill(null);
+        }}
+        bill={printBill}
+      />
     </div>
   );
 }

@@ -9,11 +9,14 @@ import {
   FaMoneyBillWave,
   FaExclamationTriangle,
   FaEdit,
+  FaPrint,
 } from "react-icons/fa";
 import { downloadTemporaryAccountsPDF } from "./downloadTemporaryAccountsPDF";
+import Pagination from "../../pagination/Pagination.jsx"; // ← adjust path if needed
+import PrintOrderBill from "../order/PrintOrderBill.jsx"; // ← adjust path if needed
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
-const LIMIT = 15;
+const LIMIT = 20;
 
 /* ---------------- helpers ---------------- */
 const formatCurrency = (amount) => {
@@ -64,6 +67,9 @@ export default function TemporaryAccounts({ refreshKey = 0, onEdit }) {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
+
+  /* print */
+  const [printBillId, setPrintBillId] = useState(null);
 
   /* ---------------- fetch ---------------- */
   const fetchDebtors = useCallback(
@@ -127,12 +133,18 @@ export default function TemporaryAccounts({ refreshKey = 0, onEdit }) {
     if (!onEdit) return;
 
     try {
-      // Fetch the full bill (with orders) before handing it up
       const res = await axios.get(`${BASE_URL}/bills/${billId}`);
       onEdit(res.data);
     } catch (err) {
       alert("خطا در دریافت اطلاعات بل");
     }
+  };
+
+  /* ---------------- print ---------------- */
+  const handlePrintClick = (billOrId, e) => {
+    e?.stopPropagation();
+    const id = typeof billOrId === "object" ? billOrId.id : billOrId;
+    setPrintBillId(id);
   };
 
   /* ---------------- download ---------------- */
@@ -222,41 +234,6 @@ export default function TemporaryAccounts({ refreshKey = 0, onEdit }) {
           فیلترها
         </div>
 
-        {/* Status chips */}
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => toggleStatus("unpaid")}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${
-              statuses.includes("unpaid")
-                ? "bg-red-600 text-white border-red-600"
-                : "bg-white text-red-700 border-gray-300 hover:border-red-500"
-            }`}
-          >
-            پرداخت نشده
-          </button>
-          <button
-            type="button"
-            onClick={() => toggleStatus("partial")}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${
-              statuses.includes("partial")
-                ? "bg-yellow-500 text-white border-yellow-500"
-                : "bg-white text-yellow-700 border-gray-300 hover:border-yellow-500"
-            }`}
-          >
-            بخشی
-          </button>
-          {(from || to || statuses.length !== 2) && (
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="px-3 py-1.5 rounded-full text-xs font-medium text-gray-600 hover:bg-gray-200 transition flex items-center gap-1"
-            >
-              <FaTimes className="text-[10px]" />
-              پاک کردن
-            </button>
-          )}
-        </div>
 
         {/* Date range */}
         <div className="flex flex-wrap items-center gap-3">
@@ -282,7 +259,7 @@ export default function TemporaryAccounts({ refreshKey = 0, onEdit }) {
       </div>
 
       {/* Summary tiles */}
-      <div className="p-4 grid grid-cols-1 md:grid-cols-4 gap-3 border-b border-gray-100">
+      <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3 border-b border-gray-100">
         <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
           <p className="text-xs text-gray-500 mb-1">تعداد بل‌های بدهکار</p>
           <p className="text-lg font-bold text-gray-900">
@@ -291,20 +268,6 @@ export default function TemporaryAccounts({ refreshKey = 0, onEdit }) {
           <p className="text-[11px] text-gray-500 mt-1">
             {summary.unpaidCount || 0} پرداخت‌نشده •{" "}
             {summary.partialCount || 0} بخشی
-          </p>
-        </div>
-
-        <div className="rounded-xl border border-gray-200 p-3">
-          <p className="text-xs text-gray-500 mb-1">مجموع کل</p>
-          <p className="text-lg font-bold text-gray-900">
-            {formatCurrency(summary.totalAmount)}
-          </p>
-        </div>
-
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
-          <p className="text-xs text-emerald-600 mb-1">پرداخت شده</p>
-          <p className="text-lg font-bold text-emerald-700">
-            {formatCurrency(summary.totalPaid)}
           </p>
         </div>
 
@@ -371,11 +334,9 @@ export default function TemporaryAccounts({ refreshKey = 0, onEdit }) {
                   <th className="px-3 py-2 text-right text-xs font-semibold text-white uppercase">
                     تاریخ
                   </th>
-                  {onEdit && (
-                    <th className="px-3 py-2 text-center text-xs font-semibold text-white uppercase">
-                      عملیات
-                    </th>
-                  )}
+                  <th className="px-3 py-2 text-center text-xs font-semibold text-white uppercase">
+                    عملیات
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-100">
@@ -384,20 +345,14 @@ export default function TemporaryAccounts({ refreshKey = 0, onEdit }) {
                     ? b.receipt.reduce((a, x) => a + Number(x || 0), 0)
                     : 0;
                   return (
-                    <tr
-                      key={b.id}
-                      className="hover:bg-primary/5 transition"
-                    >
+                    <tr key={b.id} className="hover:bg-primary/5 transition">
                       <td className="px-3 py-3 text-sm font-semibold text-primary">
                         #{b.id}
                       </td>
                       <td className="px-3 py-3 text-sm font-medium text-gray-900">
                         {b.name || "—"}
                       </td>
-                      <td
-                        className="px-3 py-3 text-sm text-gray-700"
-                        dir="ltr"
-                      >
+                      <td className="px-3 py-3 text-sm text-gray-700" dir="ltr">
                         {b.phoneNumber || "—"}
                       </td>
                       <td className="px-3 py-3 text-sm text-gray-800">
@@ -413,17 +368,26 @@ export default function TemporaryAccounts({ refreshKey = 0, onEdit }) {
                       <td className="px-3 py-3 text-sm text-gray-600">
                         {formatDate(b.createdAt)}
                       </td>
-                      {onEdit && (
-                        <td className="px-3 py-3 text-center">
+                      <td className="px-3 py-3">
+                        <div className="flex items-center justify-center gap-1">
+                          {onEdit && (
+                            <button
+                              onClick={(e) => handleEditClick(b.id, e)}
+                              className="p-2 text-primary hover:bg-primary/10 rounded-lg transition"
+                              title="ویرایش"
+                            >
+                              <FaEdit />
+                            </button>
+                          )}
                           <button
-                            onClick={(e) => handleEditClick(b.id, e)}
-                            className="p-2 text-primary hover:bg-primary/10 rounded-lg transition"
-                            title="ویرایش"
+                            onClick={(e) => handlePrintClick(b, e)}
+                            className="p-2 text-gray-700 hover:bg-gray-100 rounded-lg transition"
+                            title="چاپ"
                           >
-                            <FaEdit />
+                            <FaPrint />
                           </button>
-                        </td>
-                      )}
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}
@@ -432,37 +396,21 @@ export default function TemporaryAccounts({ refreshKey = 0, onEdit }) {
           </div>
         )}
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between pt-3">
-            <button
-              onClick={() => fetchDebtors(page - 1)}
-              disabled={page <= 1}
-              className={`px-3 py-1.5 rounded-lg text-sm transition ${
-                page <= 1
-                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                  : "bg-primary/10 text-primary hover:bg-primary/20"
-              }`}
-            >
-              قبلی
-            </button>
-            <span className="text-sm text-gray-600">
-              صفحه {page} از {totalPages}
-            </span>
-            <button
-              onClick={() => fetchDebtors(page + 1)}
-              disabled={page >= totalPages}
-              className={`px-3 py-1.5 rounded-lg text-sm transition ${
-                page >= totalPages
-                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                  : "bg-primary/10 text-primary hover:bg-primary/20"
-              }`}
-            >
-              بعدی
-            </button>
-          </div>
-        )}
+        <Pagination
+          currentPage={page}
+          totalPages={totalPages}
+          onPageChange={fetchDebtors}
+        />
       </div>
+
+      {/* -------- Print modal -------- */}
+      {printBillId && (
+        <PrintOrderBill
+          isOpen={!!printBillId}
+          onClose={() => setPrintBillId(null)}
+          orderId={printBillId}
+        />
+      )}
     </div>
   );
 }

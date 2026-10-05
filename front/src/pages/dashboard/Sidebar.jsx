@@ -19,7 +19,7 @@ import { MdOutlineDashboardCustomize } from "react-icons/md";
 import { LucideUserRoundPlus } from "lucide-react";
 import { FaList } from "react-icons/fa";
 import { MdAddShoppingCart } from "react-icons/md";
-
+const BRAND = import.meta.env.VITE_BRAND_NAME;
 const Sidebar = ({ setActiveComponent, setIsMobileOpen, isMobileOpen }) => {
   const [selectedC, setSelectedC] = useState("home");
   const [activeC, setActiveC] = useState("home");
@@ -195,7 +195,7 @@ const Sidebar = ({ setActiveComponent, setIsMobileOpen, isMobileOpen }) => {
               />
             </div>
             <span className="text-2xl font-semibold text-amber-500 whitespace-nowrap">
-          خیاطی شما
+         {BRAND}
             </span>
           </header>
         )}

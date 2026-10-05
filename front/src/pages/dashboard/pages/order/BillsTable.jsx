@@ -6,16 +6,14 @@ import {
   FaTrash,
   FaTimes,
   FaSpinner,
-  FaChevronLeft,
   FaUser,
   FaPhone,
-  FaCalendarAlt,
-  FaCheckCircle,
-  FaBan,
   FaClock,
   FaEdit,
+  FaPrint,
 } from "react-icons/fa";
 import Pagination from "../../pagination/Pagination.jsx";
+import PrintOrderBill from "./PrintOrderBill.jsx"; // ← adjust path if needed
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 const LIMIT = 20;
@@ -67,7 +65,7 @@ const customerTypeBadge = (type) => {
 /* -------------------------
    Bill Detail panel
 ------------------------- */
-function BillDetail({ bill, onClose, onDelete }) {
+function BillDetail({ bill, onClose, onDelete, onPrint }) {
   if (!bill) return null;
 
   const paid = Array.isArray(bill.receipt)
@@ -88,6 +86,13 @@ function BillDetail({ bill, onClose, onDelete }) {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => onPrint?.(bill)}
+            className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+            title="چاپ"
+          >
+            <FaPrint />
+          </button>
           <button
             onClick={() => onDelete(bill.id)}
             className="p-2 hover:bg-white/20 rounded-lg transition-colors"
@@ -149,15 +154,17 @@ function BillDetail({ bill, onClose, onDelete }) {
             </p>
           </div>
           <div
-            className={`rounded-xl border p-3 ${Number(bill.remaind) > 0
+            className={`rounded-xl border p-3 ${
+              Number(bill.remaind) > 0
                 ? "border-red-200 bg-red-50"
                 : "border-green-200 bg-green-50"
-              }`}
+            }`}
           >
             <p className="text-[11px] text-gray-500 mb-1">باقی مانده</p>
             <p
-              className={`text-sm font-bold ${Number(bill.remaind) > 0 ? "text-red-600" : "text-green-600"
-                }`}
+              className={`text-sm font-bold ${
+                Number(bill.remaind) > 0 ? "text-red-600" : "text-green-600"
+              }`}
             >
               {formatCurrency(bill.remaind)}
             </p>
@@ -219,7 +226,9 @@ function BillDetail({ bill, onClose, onDelete }) {
                         {Number(o.price).toLocaleString()}
                       </td>
                       <td className="p-2 font-semibold text-primary">
-                        {Number(o.total).toLocaleString()}
+                        {Number(o.total || 0) > 0
+                          ? Number(o.total).toLocaleString()
+                          : (Number(o.price) * Number(o.quantity)).toLocaleString()}
                       </td>
                     </tr>
                   ))}
@@ -251,6 +260,8 @@ export default function BillsTable({ refreshKey = 0, onEdit }) {
   const [selectedBill, setSelectedBill] = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
+  const [printBillId, setPrintBillId] = useState(null);
+
   /* ---------------- Fetch list ---------------- */
   const fetchBills = async (p = 1) => {
     try {
@@ -266,8 +277,8 @@ export default function BillsTable({ refreshKey = 0, onEdit }) {
     } catch (err) {
       setError(
         err?.response?.data?.message ||
-        err.message ||
-        "خطا در دریافت بل‌ها"
+          err.message ||
+          "خطا در دریافت بل‌ها"
       );
       setBills([]);
     } finally {
@@ -280,17 +291,22 @@ export default function BillsTable({ refreshKey = 0, onEdit }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, refreshKey]);
 
-
   const handleEditClick = async (billId, e) => {
     e?.stopPropagation();
     try {
-      // Fetch the full bill (with orders) — a list row alone isn't enough
       const res = await axios.get(`${BASE_URL}/bills/${billId}`);
       onEdit?.(res.data);
     } catch (err) {
       alert("خطا در دریافت اطلاعات بل");
     }
   };
+
+  const handlePrintClick = (billOrId, e) => {
+    e?.stopPropagation();
+    const id = typeof billOrId === "object" ? billOrId.id : billOrId;
+    setPrintBillId(id);
+  };
+
   /* ---------------- Fetch detail ---------------- */
   const openDetail = async (billId) => {
     if (selectedBill?.id === billId) {
@@ -330,9 +346,7 @@ export default function BillsTable({ refreshKey = 0, onEdit }) {
           </div>
           <div>
             <h2 className="text-lg font-bold text-gray-900">بل‌ها</h2>
-            <p className="text-xs text-gray-500">
-              {totalItems} بل ثبت شده
-            </p>
+            <p className="text-xs text-gray-500">{totalItems} بل ثبت شده</p>
           </div>
         </div>
       </div>
@@ -345,8 +359,9 @@ export default function BillsTable({ refreshKey = 0, onEdit }) {
 
       {/* Grid: table + detail panel */}
       <div
-        className={`grid gap-4 ${selectedBill ? "lg:grid-cols-5" : "grid-cols-1"
-          }`}
+        className={`grid gap-4 ${
+          selectedBill ? "lg:grid-cols-5" : "grid-cols-1"
+        }`}
       >
         {/* -------- Bills list -------- */}
         <div className={selectedBill ? "lg:col-span-3" : ""}>
@@ -408,10 +423,11 @@ export default function BillsTable({ refreshKey = 0, onEdit }) {
                       return (
                         <tr
                           key={bill.id}
-                          className={`cursor-pointer transition ${isSelected
+                          className={`cursor-pointer transition ${
+                            isSelected
                               ? "bg-primary/10 hover:bg-primary/15"
                               : "hover:bg-gray-50"
-                            }`}
+                          }`}
                           onClick={() => openDetail(bill.id)}
                         >
                           <td className="px-4 py-3">
@@ -424,10 +440,7 @@ export default function BillsTable({ refreshKey = 0, onEdit }) {
                               {bill.name}
                             </div>
                             {bill.phoneNumber && (
-                              <div
-                                className="text-xs text-gray-500"
-                                dir="ltr"
-                              >
+                              <div className="text-xs text-gray-500" dir="ltr">
                                 {bill.phoneNumber}
                               </div>
                             )}
@@ -439,10 +452,11 @@ export default function BillsTable({ refreshKey = 0, onEdit }) {
                             {formatCurrency(bill.total)}
                           </td>
                           <td
-                            className={`px-4 py-3 text-sm font-semibold ${Number(bill.remaind) > 0
+                            className={`px-4 py-3 text-sm font-semibold ${
+                              Number(bill.remaind) > 0
                                 ? "text-red-600"
                                 : "text-green-600"
-                              }`}
+                            }`}
                           >
                             {formatCurrency(bill.remaind)}
                           </td>
@@ -472,6 +486,13 @@ export default function BillsTable({ refreshKey = 0, onEdit }) {
                                 <FaEdit />
                               </button>
                               <button
+                                onClick={(e) => handlePrintClick(bill, e)}
+                                className="p-2 text-gray-700 hover:bg-gray-100 rounded-lg transition"
+                                title="چاپ"
+                              >
+                                <FaPrint />
+                              </button>
+                              <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleDelete(bill.id);
@@ -491,15 +512,11 @@ export default function BillsTable({ refreshKey = 0, onEdit }) {
               </table>
             </div>
 
-            {totalPages > 1 && (
-              <div className="border-t border-gray-200">
-                <Pagination
-                  currentPage={page}
-                  totalPages={totalPages}
-                  onPageChange={setPage}
-                />
-              </div>
-            )}
+            <Pagination
+              currentPage={page}
+              totalPages={totalPages}
+              onPageChange={setPage}
+            />
           </div>
         </div>
 
@@ -516,11 +533,21 @@ export default function BillsTable({ refreshKey = 0, onEdit }) {
                 bill={selectedBill}
                 onClose={() => setSelectedBill(null)}
                 onDelete={handleDelete}
+                onPrint={handlePrintClick}
               />
             )}
           </div>
         )}
       </div>
+
+      {/* -------- Print modal -------- */}
+      {printBillId && (
+        <PrintOrderBill
+          isOpen={!!printBillId}
+          onClose={() => setPrintBillId(null)}
+          orderId={printBillId}
+        />
+      )}
     </div>
   );
 }

@@ -20,7 +20,7 @@ const emptyOrder = () => ({
   athleteNumber: "",
   logo: "",
   codeNumber: "",
-  jerseyType: "home",
+  jerseyType: "سابلیمیشن",
   price: "",
 });
 

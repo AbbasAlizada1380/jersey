@@ -13,7 +13,10 @@ import {
   FaFileInvoiceDollar,
   FaChevronDown,
   FaChevronUp,
+  FaFilePdf,
+  FaDownload,
 } from "react-icons/fa";
+import { downloadPermanentDebtorsPDF } from "./downloadPermanentDebtorsPDF"; // ✅ add
 import { useSelector } from "react-redux";
 import CustomerBills from "./CustomerBills";
 import CustomerBillsFilter from "./CustomerBillsFilter";
@@ -21,6 +24,7 @@ const BASE_URL = import.meta.env.VITE_BASE_URL;
 const limit = 20;
 
 const Customers = () => {
+  const [downloadingDebtors, setDownloadingDebtors] = useState(false);
   const [customers, setCustomers] = useState([]);
   const { currentUser } = useSelector((state) => state.user);
   const [loading, setLoading] = useState(false);
@@ -31,10 +35,7 @@ const Customers = () => {
   const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
-
-  /* ---------- Inline bills panel state ---------- */
   const [billsCustomer, setBillsCustomer] = useState(null);
-
   const [form, setForm] = useState({
     fullname: "",
     phoneNumber: "",
@@ -48,9 +49,89 @@ const Customers = () => {
     );
   };
 
+  const groupBillsByCustomer = (bills) => {
+    const map = new Map();
+
+    for (const b of bills) {
+      if (b.customer == null) continue;
+
+      const key = b.customer;
+
+      if (!map.has(key)) {
+        map.set(key, {
+          customerId: b.customer,
+          name: b.name || "—",
+          phoneNumber: b.phoneNumber || "—",
+          bills: [],
+          totalAmount: 0,
+          totalPaid: 0,
+          totalRemaining: 0,
+        });
+      }
+
+      const entry = map.get(key);
+      entry.bills.push(b);
+
+      const total = Number(b.total || 0);
+      const paid = Array.isArray(b.receipt)
+        ? b.receipt.reduce((s, n) => s + Number(n || 0), 0)
+        : 0;
+      const remaind = Number(b.remaind ?? total - paid);
+
+      entry.totalAmount += total;
+      entry.totalPaid += paid;
+      entry.totalRemaining += remaind;
+    }
+
+    // Sort by biggest debt first
+    return Array.from(map.values()).sort(
+      (a, b) => b.totalRemaining - a.totalRemaining
+    );
+  };
+
   /* ======================
-     Fetch Customers
+     Download permanent debtors PDF
   ====================== */
+  const handleDownloadPermanentDebtors = async () => {
+    try {
+      setDownloadingDebtors(true);
+
+      // Fetch ALL unpaid + partial permanent bills
+      const res = await axios.get(`${BASE_URL}/bills`, {
+        params: {
+          page: 1,
+          limit: 10000,
+          status: "unpaid,partial",
+          customerType: "permanent",
+        },
+      });
+
+      const bills = res.data.bills || [];
+
+      const permanent = groupBillsByCustomer(bills);
+
+      // If nothing to export, warn
+      if (permanent.length === 0) {
+        alert("هیچ مشتری دائمی بدهکاری برای دانلود وجود ندارد");
+        return;
+      }
+
+      downloadPermanentDebtorsPDF({
+        permanent,
+        filters: {}, // no date filter here — remove if you want a range
+      });
+    } catch (err) {
+      console.error(err);
+      alert(
+        err?.response?.data?.message ||
+        err.message ||
+        "خطا در دریافت اطلاعات برای دانلود"
+      );
+    } finally {
+      setDownloadingDebtors(false);
+    }
+  };
+
   const fetchCustomers = async (page = 1) => {
     try {
       setLoading(true);
@@ -183,25 +264,42 @@ const Customers = () => {
         </div>
       )}
 
-      {/* Section Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-primary/20 rounded-xl">
-            <FaUsers className="text-primary text-lg" />
-          </div>
-          <div>
-            <h2 className="text-lg font-bold text-gray-900">
-              مدیریت مشتریان
-            </h2>
-            <p className="text-xs text-gray-500">
-              {customers.length} مشتری در این صفحه
-            </p>
-          </div>
+      <div className="flex items-center gap-3">
+        <div className="p-2.5 bg-primary/20 rounded-xl">
+          <FaUsers className="text-primary text-lg" />
         </div>
+        <div>
+          <h2 className="text-lg font-bold text-gray-900">مدیریت مشتریان</h2>
+          <p className="text-xs text-gray-500">
+            {customers.length} مشتری در این صفحه
+          </p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 self-start md:self-auto">
+        {/* ✅ Download permanent debtors PDF */}
+        <button
+          onClick={handleDownloadPermanentDebtors}
+          disabled={downloadingDebtors}
+          className="px-4 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition flex items-center gap-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          title="دانلود گزارش مشتریان دائمی بدهکار"
+        >
+          {downloadingDebtors ? (
+            <>
+              <FaSpinner className="animate-spin" />
+              در حال آماده‌سازی...
+            </>
+          ) : (
+            <>
+              <FaDownload />
+              دانلود PDF
+            </>
+          )}
+        </button>
 
         <button
           onClick={handleAddNew}
-          className="px-4 py-2.5 bg-gradient-to-r from-primary to-primary/80 text-white rounded-xl hover:opacity-90 transition-all flex items-center gap-2 shadow-sm self-start md:self-auto"
+          className="px-4 py-2.5 bg-gradient-to-r from-primary to-primary/80 text-white rounded-xl hover:opacity-90 transition-all flex items-center gap-2 shadow-sm"
         >
           <FaPlus />
           افزودن مشتری
@@ -256,8 +354,8 @@ const Customers = () => {
                     <tr
                       key={c.id}
                       className={`transition-colors ${isShowingBills
-                          ? "bg-primary/5"
-                          : "hover:bg-primary/5"
+                        ? "bg-primary/5"
+                        : "hover:bg-primary/5"
                         } ${c.isActive === false ? "opacity-60" : ""}`}
                     >
                       <td className="px-6 py-4">
@@ -281,8 +379,8 @@ const Customers = () => {
                       <td className="px-6 py-4">
                         <span
                           className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${c.isActive
-                              ? "bg-green-100 text-green-800"
-                              : "bg-red-100 text-red-700"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-red-100 text-red-700"
                             }`}
                         >
                           {c.isActive ? (
@@ -304,8 +402,8 @@ const Customers = () => {
                           <button
                             onClick={() => handleToggleBills(c)}
                             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 ${isShowingBills
-                                ? "bg-primary text-white hover:opacity-90"
-                                : "bg-primary/10 text-primary hover:bg-primary/20"
+                              ? "bg-primary text-white hover:opacity-90"
+                              : "bg-primary/10 text-primary hover:bg-primary/20"
                               }`}
                             title={
                               isShowingBills
@@ -477,8 +575,8 @@ const Customers = () => {
                     <div className="flex items-center gap-3">
                       <div
                         className={`p-2 rounded-lg ${form.isActive
-                            ? "bg-green-100 text-green-700"
-                            : "bg-red-100 text-red-600"
+                          ? "bg-green-100 text-green-700"
+                          : "bg-red-100 text-red-600"
                           }`}
                       >
                         {form.isActive ? <FaCheckCircle /> : <FaBan />}
@@ -524,8 +622,8 @@ const Customers = () => {
                     type="submit"
                     disabled={submitting}
                     className={`px-6 py-3 rounded-xl font-medium shadow-md transition flex items-center gap-2 ${submitting
-                        ? "bg-gray-400 cursor-not-allowed text-white"
-                        : "bg-gradient-to-r from-primary to-primary/80 hover:opacity-90 text-white"
+                      ? "bg-gray-400 cursor-not-allowed text-white"
+                      : "bg-gradient-to-r from-primary to-primary/80 hover:opacity-90 text-white"
                       }`}
                   >
                     {submitting ? (

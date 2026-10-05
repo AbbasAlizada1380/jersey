@@ -1,12 +1,13 @@
 import { useState } from "react";
-import { FaUsers, FaUserClock, FaExclamationTriangle } from "react-icons/fa";
+import { FaUsers, FaUserClock, FaExclamationTriangle, FaUserTie } from "react-icons/fa";
 import Customers from "./Customers";
-import PermanentDebtors from "../order/PermanentDebtors.jsx";
+import PermanentDebtors from "./PermanentDebtors.jsx";
 import CustomerBills from "./CustomerBills";
 import AllCustomerDebt from "./AllCustomerDebt"; // ← new
+import TemporaryAccounts from "./TemporaryAccounts"; // ← new
 
 export default function CustomersPage() {
-  const [activeTab, setActiveTab] = useState("permanent"); // "permanent" | "temporary" | "debt"
+  const [activeTab, setActiveTab] = useState("permanent"); // "permanent" | "permanentCAccount" | "temporaryCAccount" | "debt"
   const [refreshKey, setRefreshKey] = useState(0);
 
   /* Selected customer whose bills we're viewing (from either tab) */
@@ -65,30 +66,30 @@ export default function CustomersPage() {
             <span>مشتریان دائمی</span>
           </button>
 
-          {/* Temporary tab */}
+          {/* ← New: Temporary account tab */}
           <button
-            onClick={() => setActiveTab("temporary")}
+            onClick={() => setActiveTab("temporaryCAccount")}
             className={`group flex-1 flex items-center justify-center gap-3 px-5 py-3 rounded-xl font-medium transition-all ${
-              activeTab === "temporary"
+              activeTab === "temporaryCAccount"
                 ? "bg-gradient-to-r from-primary to-primary/80 text-white shadow-sm"
                 : "text-gray-600 bg-gray-50 hover:bg-gray-100 border border-gray-200"
             }`}
           >
             <div
               className={`p-2 rounded-lg ${
-                activeTab === "temporary" ? "bg-white/20" : "bg-red-100"
+                activeTab === "temporaryCAccount" ? "bg-white/20" : "bg-emerald-100"
               }`}
             >
-              <FaUserClock
+              <FaUserTie
                 className={`text-sm ${
-                  activeTab === "temporary" ? "text-white" : "text-red-600"
+                  activeTab === "temporaryCAccount" ? "text-white" : "text-emerald-600"
                 }`}
               />
             </div>
-            <span>مشتریان موقت</span>
+            <span> مشتریان موقت</span>
           </button>
 
-          {/* ← New: Debts tab */}
+          {/* Debts tab */}
           <button
             onClick={() => setActiveTab("debt")}
             className={`group flex-1 flex items-center justify-center gap-3 px-5 py-3 rounded-xl font-medium transition-all ${
@@ -118,8 +119,8 @@ export default function CustomersPage() {
         {activeTab === "permanent" && (
           <Customers onViewBills={openBills} refreshKey={refreshKey} />
         )}
-        {activeTab === "temporary" && (
-          <PermanentDebtors
+        {activeTab === "temporaryCAccount" && (
+          <TemporaryAccounts
             refreshKey={refreshKey}
             onViewBills={openBills}
           />

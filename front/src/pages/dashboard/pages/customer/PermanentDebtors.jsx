@@ -1,21 +1,21 @@
-import { useEffect, useState, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
+import Pagination from "../../pagination/Pagination.jsx";
 import {
+  FaExclamationTriangle,
   FaUser,
-  FaPhone,
+  FaReceipt,
   FaMoneyBillWave,
-  FaCheckCircle,
   FaTimes,
   FaSpinner,
-  FaExclamationTriangle,
-  FaReceipt,
-  FaChevronLeft,
+  FaCheckCircle,
+  FaDownload,
 } from "react-icons/fa";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
-const LIMIT = 20;
+const LIMIT = 10;
 
-/* ---------------- helpers ---------------- */
+/* -------------------- Helpers -------------------- */
 const formatCurrency = (amount) => {
   if (amount === null || amount === undefined) return "۰ افغانی";
   return new Intl.NumberFormat("en-US").format(Number(amount)) + " افغانی";
@@ -27,30 +27,31 @@ const formatDate = (d) => {
 };
 
 const statusBadge = (status) => {
-  if (status === "partial") {
-    return (
-      <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-        بخشی
-      </span>
-    );
-  }
+  const map = {
+    paid: { label: "پرداخت شده", cls: "bg-green-100 text-green-800" },
+    partial: { label: "بخشی", cls: "bg-yellow-100 text-yellow-800" },
+    unpaid: { label: "پرداخت نشده", cls: "bg-red-100 text-red-800" },
+  };
+  const s = map[status] || map.unpaid;
   return (
-    <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-      پرداخت نشده
+    <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${s.cls}`}>
+      {s.label}
     </span>
   );
 };
 
-export default function PermanentDebtors({ refreshKey = 0, onPaid }) {
+/* ============================================================
+   Component
+   ============================================================ */
+const PermanentDebtors = () => {
+  /* -------------------- State -------------------- */
   const [debtors, setDebtors] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [successMessage, setSuccessMessage] = useState(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [totalItems, setTotalItems] = useState(0);
 
-  /* Selected customer + their bills */
+  /* Selection + payment panel */
   const [selected, setSelected] = useState(null);
   const [bills, setBills] = useState([]);
   const [loadingBills, setLoadingBills] = useState(false);
@@ -59,84 +60,85 @@ export default function PermanentDebtors({ refreshKey = 0, onPaid }) {
   const [payAmount, setPayAmount] = useState("");
   const [payDescription, setPayDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState(null);
 
-  /* ---------------- Fetch debtors ---------------- */
-  const fetchDebtors = useCallback(async (p = 1) => {
+  /* Download */
+  const [downloading, setDownloading] = useState(false);
+
+  const hasSelection = !!selected;
+
+  /* -------------------- Fetch debtors -------------------- */
+  const fetchDebtors = async (p = 1) => {
     try {
       setLoading(true);
       setError(null);
 
       const res = await axios.get(`${BASE_URL}/bills`, {
         params: {
-          customerType: "permanent",
-          status: "unpaid,partial",
           page: p,
           limit: LIMIT,
+          status: "unpaid,partial",
+          customerType: "permanent",
         },
       });
 
-      // Group bills by customer, so we show one row per debtor
-      const rows = res.data.bills || [];
-      const byCustomer = new Map();
+      /* Group bills by customer */
+      const rawBills = res.data.bills || [];
+      const map = new Map();
 
-      for (const b of rows) {
-        if (!b.customer) continue;
-        if (!byCustomer.has(b.customer)) {
-          byCustomer.set(b.customer, {
+      for (const b of rawBills) {
+        const key = b.customer;
+        if (key == null) continue;
+
+        if (!map.has(key)) {
+          map.set(key, {
             customerId: b.customer,
-            name: b.name,
-            phoneNumber: b.phoneNumber,
+            name: b.name || "—",
+            phoneNumber: b.phoneNumber || "—",
             bills: [],
             totalOwed: 0,
           });
         }
-        const entry = byCustomer.get(b.customer);
+        const entry = map.get(key);
         entry.bills.push(b);
-        entry.totalOwed += Number(b.remaind) || 0;
+        entry.totalOwed += Number(b.remaind || 0);
       }
 
-      const grouped = Array.from(byCustomer.values());
+      const grouped = Array.from(map.values()).sort(
+        (a, b) => b.totalOwed - a.totalOwed
+      );
 
       setDebtors(grouped);
       setPage(res.data.pagination?.currentPage || p);
       setTotalPages(res.data.pagination?.totalPages || 1);
-      setTotalItems(res.data.pagination?.totalItems || 0);
     } catch (err) {
       setError(
-        err?.response?.data?.message ||
-          err.message ||
-          "خطا در دریافت بدهکاران"
+        err?.response?.data?.message || err.message || "خطا در دریافت بدهکاران"
       );
-      setDebtors([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  };
 
   useEffect(() => {
     fetchDebtors(1);
-    setSelected(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshKey]);
+  }, []);
 
-  /* ---------------- Open a debtor ---------------- */
-  const openCustomer = async (debtor) => {
-    if (selected?.customerId === debtor.customerId) {
-      setSelected(null);
-      setBills([]);
-      return;
-    }
-
-    setSelected(debtor);
+  /* -------------------- Open a customer's bills -------------------- */
+  const openCustomer = async (d) => {
+    setSelected(d);
     setPayAmount("");
     setPayDescription("");
-    setLoadingBills(true);
-    setError(null);
+    await loadBills(d);
+  };
 
+  const loadBills = async (d) => {
     try {
+      setLoadingBills(true);
       const res = await axios.get(`${BASE_URL}/bills`, {
         params: {
-          customer: debtor.customerId,
+          customer: d.customerId,
           customerType: "permanent",
           status: "unpaid,partial",
           page: 1,
@@ -145,129 +147,177 @@ export default function PermanentDebtors({ refreshKey = 0, onPaid }) {
       });
       setBills(res.data.bills || []);
     } catch (err) {
-      setError("خطا در دریافت بل‌های مشتری");
+      console.error(err);
       setBills([]);
     } finally {
       setLoadingBills(false);
     }
   };
 
-  /* ---------------- Derived ---------------- */
-  const totalOwed = bills.reduce(
-    (sum, b) => sum + Number(b.remaind || 0),
-    0
-  );
+  /* -------------------- Pay -------------------- */
   const numericPayAmount = Number(payAmount) || 0;
+  const totalOwed = selected?.totalOwed || 0;
   const remainingAfter = Math.max(totalOwed - numericPayAmount, 0);
   const overpay = Math.max(numericPayAmount - totalOwed, 0);
 
-  /* ---------------- Submit payment ---------------- */
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError(null);
+    if (!selected || numericPayAmount <= 0 || submitting) return;
 
-    if (!selected) return;
-    if (numericPayAmount <= 0) {
-      setError("مبلغ پرداختی باید بزرگ‌تر از صفر باشد");
-      return;
-    }
-    if (numericPayAmount > totalOwed) {
-      const ok = window.confirm(
-        `مبلغ پرداختی از مجموع بدهی (${formatCurrency(
-          totalOwed
-        )}) بیشتر است. آیا ادامه می‌دهید؟`
-      );
-      if (!ok) return;
-    }
-
-    setSubmitting(true);
     try {
-      const res = await axios.post(`${BASE_URL}/bills/pay-permanent`, {
-        customer: selected.customerId,
-        amount: numericPayAmount,
-        description: payDescription?.trim() || null,
-      });
+      setSubmitting(true);
+      setError(null);
 
-      const data = res.data || {};
-      const paid = data.paid ?? numericPayAmount;
-      const allocs = Array.isArray(data.allocations) ? data.allocations : [];
-
-      setSuccessMessage(
-        `پرداخت ${formatCurrency(paid)} ثبت شد${
-          allocs.length > 0 ? ` (${allocs.length} بل)` : ""
-        }`
+      /* Pay oldest unpaid bill first (FIFO) */
+      let remaining = numericPayAmount;
+      const sortedBills = [...bills].sort(
+        (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
       );
 
-      /* Reset the payment fields */
+      for (const b of sortedBills) {
+        if (remaining <= 0) break;
+
+        const billRemaind = Number(b.remaind || 0);
+        if (billRemaind <= 0) continue;
+
+        const take = Math.min(remaining, billRemaind);
+        remaining -= take;
+
+        const newReceipt = Array.isArray(b.receipt) ? [...b.receipt] : [];
+        newReceipt.push(take);
+
+        const newRemaind = billRemaind - take;
+        const newStatus = newRemaind <= 0 ? "paid" : "partial";
+
+        await axios.put(`${BASE_URL}/bills/${b.id}`, {
+          receipt: newReceipt,
+          remaind: newRemaind,
+          status: newStatus,
+        });
+      }
+
+      setSuccessMessage("پرداخت با موفقیت ثبت شد");
+      setTimeout(() => setSuccessMessage(null), 3000);
+
+      /* Refresh everything */
+      await Promise.all([loadBills(selected), fetchDebtors(page)]);
       setPayAmount("");
       setPayDescription("");
-
-      /* Refresh the bill list for this customer */
-      await openCustomerRefresh(selected.customerId);
-
-      /* Notify parent */
-      onPaid?.(data);
-
-      setTimeout(() => setSuccessMessage(null), 3500);
     } catch (err) {
       setError(
-        err?.response?.data?.message ||
-          err.message ||
-          "خطا در ثبت پرداخت"
+        err?.response?.data?.message || err.message || "خطا در ثبت پرداخت"
       );
     } finally {
       setSubmitting(false);
     }
   };
 
-  /* Refresh open customer's bills without toggling closed */
-  const openCustomerRefresh = async (customerId) => {
+  /* -------------------- Download -------------------- */
+  const handleDownload = async () => {
     try {
-      setLoadingBills(true);
+      setDownloading(true);
+
       const res = await axios.get(`${BASE_URL}/bills`, {
         params: {
-          customer: customerId,
-          customerType: "permanent",
-          status: "unpaid,partial",
           page: 1,
-          limit: 100,
+          limit: 10000,
+          status: "unpaid,partial",
+          customerType: "permanent",
         },
       });
-      const nextBills = res.data.bills || [];
-      setBills(nextBills);
 
-      /* Update the debtor row's total owed in the list */
-      setDebtors((prev) =>
-        prev.map((d) =>
-          d.customerId === customerId
-            ? {
-                ...d,
-                bills: nextBills,
-                totalOwed: nextBills.reduce(
-                  (s, b) => s + Number(b.remaind || 0),
-                  0
-                ),
-              }
-            : d
-        )
+      const allBills = res.data.bills || [];
+
+      if (allBills.length === 0) {
+        alert("هیچ بلی برای دانلود وجود ندارد");
+        return;
+      }
+
+      /* Compute summary */
+      const summary = allBills.reduce(
+        (acc, b) => {
+          const total = Number(b.total || 0);
+          const paid = Array.isArray(b.receipt)
+            ? b.receipt.reduce((s, n) => s + Number(n || 0), 0)
+            : 0;
+          const remaind = Number(b.remaind ?? total - paid);
+
+          acc.totalBills += 1;
+          acc.totalAmount += total;
+          acc.totalPaid += paid;
+          acc.totalRemaining += remaind;
+          return acc;
+        },
+        { totalBills: 0, totalAmount: 0, totalPaid: 0, totalRemaining: 0 }
       );
 
-      /* If the customer has no more debt, close them */
-      if (nextBills.length === 0) {
-        setSelected(null);
-      }
+      /* Lazy import the PDF generator */
+      const { downloadPermanentDebtorsPDF } = await import(
+        "./downloadPermanentDebtorsPDF"
+      );
+
+      downloadPermanentDebtorsPDF({
+        bills: allBills,
+        summary,
+        filters: { status: "unpaid,partial" },
+      });
     } catch (err) {
-      console.error("refresh customer bills error:", err);
+      console.error(err);
+      alert(
+        err?.response?.data?.message ||
+          err.message ||
+          "خطا در دریافت داده برای دانلود"
+      );
     } finally {
-      setLoadingBills(false);
+      setDownloading(false);
     }
   };
 
-  /* ---------------- Render ---------------- */
-  const hasSelection = Boolean(selected);
-
+  /* ============================================================
+     Render
+     ============================================================ */
   return (
     <div className="space-y-4">
+      {/* ============================================================
+          ✅ HEADER — gradient bar with title, subtitle, download button
+          ============================================================ */}
+      <div className="bg-gradient-to-r from-primary to-primary/80 text-white p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 rounded-2xl shadow-lg">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white/20 rounded-full">
+            <FaExclamationTriangle className="h-5 w-5" />
+          </div>
+          <div>
+            <h3 className="font-bold">مشتریان دائمی بدهکار</h3>
+            <p className="text-xs text-white/80">
+              {debtors.length} مشتری با بل پرداخت‌نشده یا بخشی
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={handleDownload}
+          disabled={downloading || debtors.length === 0}
+          className={`px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition self-start md:self-auto ${
+            downloading || debtors.length === 0
+              ? "bg-white/20 text-white/60 cursor-not-allowed"
+              : "bg-white text-primary hover:bg-white/90"
+          }`}
+          title="دانلود گزارش PDF"
+        >
+          {downloading ? (
+            <>
+              <FaSpinner className="animate-spin" />
+              در حال آماده‌سازی...
+            </>
+          ) : (
+            <>
+              <FaDownload />
+              دانلود PDF
+            </>
+          )}
+        </button>
+      </div>
+
       {/* Success toast */}
       {successMessage && (
         <div className="fixed top-4 right-4 left-4 md:left-auto md:w-96 z-50 animate-slideDown">
@@ -303,22 +353,6 @@ export default function PermanentDebtors({ refreshKey = 0, onPaid }) {
         {/* -------- Debtors list -------- */}
         <div className={hasSelection ? "lg:col-span-3" : ""}>
           <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-            <div className="bg-gradient-to-r from-primary to-primary/80 text-white p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-white/20 rounded-full">
-                  <FaExclamationTriangle className="h-5 w-5" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold">
-                    مشتریان دائمی بدهکار
-                  </h2>
-                  <p className="text-xs text-white/80">
-                    {debtors.length} مشتری با بل پرداخت‌نشده یا بخشی
-                  </p>
-                </div>
-              </div>
-            </div>
-
             {loading ? (
               <div className="py-12 text-center">
                 <FaSpinner className="text-3xl text-primary animate-spin mx-auto mb-3" />
@@ -417,35 +451,12 @@ export default function PermanentDebtors({ refreshKey = 0, onPaid }) {
               </div>
             )}
 
-            {/* Pagination */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between border-t border-gray-200 px-4 py-3">
-                <button
-                  onClick={() => fetchDebtors(page - 1)}
-                  disabled={page <= 1}
-                  className={`px-3 py-1.5 rounded-lg text-sm transition ${
-                    page <= 1
-                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                      : "bg-primary/10 text-primary hover:bg-primary/20"
-                  }`}
-                >
-                  قبلی
-                </button>
-                <span className="text-sm text-gray-600">
-                  صفحه {page} از {totalPages}
-                </span>
-                <button
-                  onClick={() => fetchDebtors(page + 1)}
-                  disabled={page >= totalPages}
-                  className={`px-3 py-1.5 rounded-lg text-sm transition ${
-                    page >= totalPages
-                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                      : "bg-primary/10 text-primary hover:bg-primary/20"
-                  }`}
-                >
-                  بعدی
-                </button>
-              </div>
+              <Pagination
+                currentPage={page}
+                totalPages={totalPages}
+                onPageChange={fetchDebtors}
+              />
             )}
           </div>
         </div>
@@ -517,7 +528,6 @@ export default function PermanentDebtors({ refreshKey = 0, onPaid }) {
                       disabled={submitting}
                       required
                     />
-                    {/* Quick buttons */}
                     <div className="flex gap-2 mt-2">
                       <button
                         type="button"
@@ -552,7 +562,6 @@ export default function PermanentDebtors({ refreshKey = 0, onPaid }) {
                     />
                   </div>
 
-                  {/* Live preview */}
                   {numericPayAmount > 0 && (
                     <div className="rounded-xl bg-gray-50 border border-gray-200 p-3 text-xs space-y-1">
                       <div className="flex justify-between">
@@ -659,4 +668,6 @@ export default function PermanentDebtors({ refreshKey = 0, onPaid }) {
       </div>
     </div>
   );
-}
+};
+
+export default PermanentDebtors;
