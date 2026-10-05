@@ -1,5 +1,13 @@
 // controllers/attendance.controller.js
-import { Attendance, Staff, SalaryList } from "../../../Models/index.js"
+import {
+  SalaryList,
+  Attendance,
+  Staff,
+  PaidSalary,
+} from  "../../../Models/index.js";
+import { Op } from "sequelize";
+
+
 
 /* ---------------------------------------------------------
    Helper: build the default attendance JSON for a new period
@@ -64,14 +72,15 @@ export const getAttendanceById = async (req, res) => {
   }
 };
 
-/* ---------------------------------------------------------
-   UPDATE attendance (attendance JSON / overtime / recalc total)
-   PUT /api/attendance/:id
-   body: { attendance: {...}, calculated: true }
-   --------------------------------------------------------- */
+
+
 export const updateAttendance = async (req, res) => {
   const transaction = await Attendance.sequelize.transaction();
+
   try {
+    /* =========================================================
+       1) Load the attendance + staff
+       ========================================================= */
     const record = await Attendance.findByPk(req.params.id, { transaction });
     if (!record) {
       await transaction.rollback();
@@ -84,16 +93,38 @@ export const updateAttendance = async (req, res) => {
       return res.status(404).json({ message: "Staff not found" });
     }
 
+    /* =========================================================
+       2) Build the updates object
+       ========================================================= */
     const updates = { ...req.body };
 
-    // 1) Normalize receipt to an array of numbers
+    // ✅ Normalize receipt — accepts numbers OR { amount, note } objects
     if ("receipt" in updates) {
-      updates.receipt = Array.isArray(updates.receipt)
-        ? updates.receipt.map((n) => Number(n) || 0).filter((n) => n > 0)
-        : [];
+      const raw = updates.receipt;
+
+      if (Array.isArray(raw)) {
+        updates.receipt = raw
+          .map((entry) => {
+            if (typeof entry === "number" || typeof entry === "string") {
+              const n = Number(entry);
+              return { amount: Number.isFinite(n) ? n : 0, note: null };
+            }
+            if (entry && typeof entry === "object") {
+              const n = Number(entry.amount ?? entry.value ?? 0);
+              return {
+                amount: Number.isFinite(n) ? n : 0,
+                note: entry.note ?? entry.description ?? null,
+              };
+            }
+            return { amount: 0, note: null };
+          })
+          .filter((e) => e.amount > 0);
+      } else {
+        updates.receipt = [];
+      }
     }
 
-    // 2) Recalculate salary/overtime/total if attendance provided
+    // Recalculate salary/overtime/total if attendance JSON provided
     if (updates.attendance) {
       const { salary, overtime, total } = calculatePay(
         staff,
@@ -105,46 +136,118 @@ export const updateAttendance = async (req, res) => {
       updates.calculated = true;
     }
 
-    // 3) Persist the attendance row
+    /* =========================================================
+       3) Persist the attendance row
+       ========================================================= */
     await record.update(updates, { transaction });
+    await record.reload({ transaction });
 
-    // 4) Recompute parent SalaryList.paid AND .total from all siblings
+    /* =========================================================
+       4) ✅ SYNC PaidSalary FROM THE UPDATED RECEIPT
+       
+       Rule: 
+         - delete all existing PaidSalary rows for this attendance
+         - re-create one PaidSalary per receipt entry
+       ========================================================= */
+    if ("receipt" in updates) {
+      const receiptArr = Array.isArray(record.receipt) ? record.receipt : [];
+
+      // Delete old rows
+      await PaidSalary.destroy({
+        where: { attendanceId: record.id },
+        transaction,
+      });
+
+      // Re-create one PaidSalary per receipt entry
+      if (receiptArr.length > 0) {
+        await PaidSalary.bulkCreate(
+          receiptArr.map((entry, idx) => {
+            // entry is now { amount, note } after normalization
+            const amount =
+              typeof entry === "object"
+                ? Number(entry.amount) || 0
+                : Number(entry) || 0;
+            const note =
+              typeof entry === "object" && entry.note
+                ? entry.note
+                : `پرداخت #${idx + 1}`;
+
+            return {
+              attendanceId: record.id,
+              amount,
+              note,
+            };
+          }),
+          { transaction }
+        );
+      }
+    }
+
+    /* =========================================================
+       5) ✅ RECOMPUTE the parent SalaryList.paid + .total
+       
+       - totalEarned = sum of ALL siblings' `total` (what should be paid)
+       - totalPaid   = sum of ALL siblings' PaidSalary amounts (what was paid)
+       ========================================================= */
     const siblings = await Attendance.findAll({
       where: { list: record.list },
-      attributes: ["receipt", "total"],   // ← also fetch total
+      attributes: ["id", "total"],
       transaction,
     });
 
-    const totalPaid = siblings.reduce((sum, r) => {
-      const arr = Array.isArray(r.receipt) ? r.receipt : [];
-      return sum + arr.reduce((a, b) => a + (Number(b) || 0), 0);
-    }, 0);
+    const siblingIds = siblings.map((s) => s.id);
 
+    // Compute totalPaid from PaidSalary (source of truth)
+    let totalPaid = 0;
+    if (siblingIds.length > 0) {
+      const paidRows = await PaidSalary.findAll({
+        where: { attendanceId: { [Op.in]: siblingIds } },
+        attributes: ["amount"],
+        transaction,
+      });
+      totalPaid = paidRows.reduce((s, r) => s + Number(r.amount || 0), 0);
+    }
+
+    // Compute totalEarned from siblings' total
     const totalEarned = siblings.reduce(
       (sum, r) => sum + Number(r.total || 0),
       0
     );
 
-    // 5) Update the parent list
+    /* =========================================================
+       6) ✅ UPDATE the parent SalaryList
+       ========================================================= */
     await SalaryList.update(
       {
-        paid: totalPaid,
-        total: totalEarned,
+        paid: Number(totalPaid.toFixed(2)),
+        total: Number(totalEarned.toFixed(2)),
       },
-      { where: { id: record.list }, transaction }
+      {
+        where: { id: record.list },
+        transaction,
+      }
     );
 
-    // Fetch the refreshed list (MySQL doesn't always return the row)
+    // Fetch the refreshed list
     const salaryList = await SalaryList.findByPk(record.list, { transaction });
 
     await transaction.commit();
 
+    /* =========================================================
+       7) Fetch fresh payments for the response
+       ========================================================= */
+    const payments = await PaidSalary.findAll({
+      where: { attendanceId: record.id },
+      order: [["id", "ASC"]],
+    });
+
     return res.status(200).json({
       message: "Updated successfully",
       record,
-      salaryList,             // ← frontend can refresh list.paid / list.total
-      listPaid: totalPaid,    // ← convenience
-      listTotal: totalEarned, // ← convenience
+      payments,                    // ✅ PaidSalary rows for this attendance
+      salaryList,                  // ✅ refreshed parent list
+      listPaid: Number(totalPaid.toFixed(2)),    // ✅ convenience
+      listTotal: Number(totalEarned.toFixed(2)), // ✅ convenience
     });
   } catch (error) {
     await transaction.rollback();

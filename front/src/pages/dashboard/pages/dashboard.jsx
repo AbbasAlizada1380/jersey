@@ -13,6 +13,7 @@ const Dashboard = () => {
 
       {/* Render the FinancialReports component */}
       <div className="">
+        <FinancialReports/>
         <DashboardHome />
         {/* <AnalyticsDashboard /> */}
       </div>

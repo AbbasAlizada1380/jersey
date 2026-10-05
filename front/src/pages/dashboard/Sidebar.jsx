@@ -72,30 +72,31 @@ const Sidebar = ({ setActiveComponent, setIsMobileOpen, isMobileOpen }) => {
     //   value: "Packages",
     //   icon: <MdAddBox />,
     // },
+    
     {
-      name: "برداشت شرکا ",
-      value: "holders",
-      icon: <FaList />,
-    },
+      name: "سفارشات ",
+      value: "order",
+      icon: <HiOutlineTruck />,
+    },    
     {
       name: "مشتری ها",
       value: "Customers",
       icon: <FaMapMarkedAlt />,
     },
     {
-      name: "سفارشات ",
-      value: "order",
-      icon: <HiOutlineTruck />,
+      name: "مصارف",
+      value: "ExpenseManager",
+      icon: <MdPayments />,
+    },
+    {
+      name: "سهام داران",
+      value: "holders",
+      icon: <FaList />,
     },
     {
       name: "معاشات",
       value: "ُSalaries",
       icon: <BsCurrencyDollar />,
-    },
-    {
-      name: "مصارف",
-      value: "ExpenseManager",
-      icon: <MdPayments />,
     },
     {
       name: "ثبت کاربر جدید",

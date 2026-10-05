@@ -70,6 +70,7 @@ app.use("/uploads", express.static(uploadsDirectory));
 // Routes
 app.use("/users", userRout);
 app.use("/staff", StaffRoute);
+app.use("/attendance", attendanceRoute);
 app.use("/report", PackageReportRouter);
 app.use("/holders", holderRoute);
 app.use("/valets", Valetroute);

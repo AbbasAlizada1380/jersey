@@ -6,10 +6,12 @@ import {
   getSalaryListById,
   updateSalaryList,
   deleteSalaryList,
+  getPaidSalariesDailyReport,
 } from "../../../Controllers/staff/salary/salaryListController.js";
 
 const salaryRoute = express.Router();
 salaryRoute.post("/", createSalaryList);
+salaryRoute.get("/reports/paid/daily", getPaidSalariesDailyReport); 
 salaryRoute.get("/", getAllSalaryLists);
 salaryRoute.get("/:id", getSalaryListById);
 salaryRoute.put("/:id", updateSalaryList);

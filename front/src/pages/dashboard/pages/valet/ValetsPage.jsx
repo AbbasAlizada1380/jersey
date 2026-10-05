@@ -496,7 +496,7 @@ export default function ValetsPage({ refreshKey = 0, onChanged }) {
                     onChange={(e) => setFilterHolder(e.target.value)}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-primary focus:border-primary"
                   >
-                    <option value="">همه حاملین</option>
+                    <option value="">همه سهام داران </option>
                     {holders.map((h) => (
                       <option key={h.id} value={h.id}>
                         {h.fullName}

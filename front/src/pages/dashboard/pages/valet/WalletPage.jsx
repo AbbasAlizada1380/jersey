@@ -22,7 +22,7 @@ export default function WalletPage() {
               مدیریت کیف‌ها
             </h1>
             <p className="text-xs text-gray-500">
-              حاملین و تراکنش‌های مالی
+              سهام داران و تراکنش‌های مالی
             </p>
           </div>
         </div>
@@ -51,7 +51,7 @@ export default function WalletPage() {
                 }`}
               />
             </div>
-            <span>حاملین</span>
+            <span>سهام داران </span>
           </button>
 
           {/* Valets tab */}

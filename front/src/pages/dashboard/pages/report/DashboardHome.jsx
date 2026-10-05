@@ -1,26 +1,26 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import axios from "axios";
 import {
-	FaMoneyBillWave,
-	FaTruck,
-	FaClock,
-	FaCheckCircle,
-	FaChartLine,
-	FaCalendarAlt,
-	FaSync,
-	FaBoxOpen,
-	FaWallet,
-	FaExclamationTriangle,
-	FaDownload,
-	FaFilter,
-	FaFileExcel,
-	FaFilePdf,
-	FaChevronDown,
-	FaChevronUp,
-	FaDollarSign,
-	FaBoxes,
-	FaPercent,
-	FaHistory,
+  FaMoneyBillWave,
+  FaTruck,
+  FaClock,
+  FaCheckCircle,
+  FaChartLine,
+  FaCalendarAlt,
+  FaSync,
+  FaBoxOpen,
+  FaWallet,
+  FaExclamationTriangle,
+  FaFilter,
+  FaChevronDown,
+  FaChevronUp,
+  FaDollarSign,
+  FaBoxes,
+  FaHistory,
+  FaTimes,
+  FaInfoCircle,
+  FaUsers,
+  FaClipboardList,
 } from "react-icons/fa";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -31,425 +31,484 @@ import ReceiptsManager from "../order/ReceiptsManager.jsx";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
-const DashboardHome = () => {
-	const [reportData, setReportData] = useState(null);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState(null);
-	const [lastUpdated, setLastUpdated] = useState(null);
-	const [startDate, setStartDate] = useState(null);
-	const [endDate, setEndDate] = useState(null);
-	const [showFilters, setShowFilters] = useState(false);
-	const [reportType, setReportType] = useState("all");
-	const [isRefreshing, setIsRefreshing] = useState(false);
-	const { currentUser } = useSelector((state) => state.user);
-	const [showModel, setShowModel] = useState(false);
+// ============================================================
+// CONSTANTS
+// ============================================================
 
-	const fetchReportData = async (start = null, end = null, type = "all") => {
-		try {
-			setLoading(true);
-			setIsRefreshing(true);
-			const params = {};
-			if (start) params.startDate = start.toISOString().split("T")[0];
-			if (end) params.endDate = end.toISOString().split("T")[0];
-			if (type !== "all") params.type = type;
+const REPORT_TYPES = [
+  { value: "all", label: "همه سفارشات" },
+  { value: "delivered", label: "تحویل شده" },
+  { value: "pending", label: "در انتظار" },
+];
 
-			const response = await axios.get(`${BASE_URL}/report`, { params });
-			setReportData(response.data.data);
-			setLastUpdated(new Date());
-			setError(null);
-		} catch (err) {
-			setError("خطا در دریافت اطلاعات");
-			console.error("Error fetching report data:", err);
-		} finally {
-			setLoading(false);
-			setIsRefreshing(false);
-		}
-	};
+// ============================================================
+// HELPER COMPONENTS
+// ============================================================
 
-	useEffect(() => {
-		fetchReportData();
-	}, []);
+const LoadingState = ({ message = "در حال بارگذاری داشبورد" }) => (
+  <div className="min-h-screen bg-white flex items-center justify-center p-4">
+    <div className="text-center max-w-md">
+      <div className="relative">
+        <div className="w-20 h-20 border-4 border-blue-100 rounded-full mx-auto mb-6"></div>
+        <div className="w-20 h-20 border-4 border-blue-600 border-t-transparent rounded-full animate-spin absolute top-0 left-1/2 transform -translate-x-1/2"></div>
+      </div>
+      <h3 className="text-xl font-semibold text-gray-700 mb-2">{message}</h3>
+      <p className="text-gray-500">دریافت آخرین اطلاعات...</p>
+    </div>
+  </div>
+);
 
-	const formatCurrency = (amount) => {
-		return new Intl.NumberFormat("fa-AF").format(amount) + " دالر  ";
-	};
+const ErrorState = ({ error, onRetry, isRefreshing }) => (
+  <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+    <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center border border-red-100">
+      <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <FaExclamationTriangle className="text-red-500 text-2xl" />
+      </div>
+      <h3 className="text-xl font-bold text-gray-800 mb-3">خطا در اتصال</h3>
+      <p className="text-gray-600 mb-6">{error}</p>
+      <button
+        onClick={onRetry}
+        disabled={isRefreshing}
+        className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-8 py-3 rounded-xl font-semibold transition-all duration-200 flex items-center justify-center gap-3 mx-auto shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+      >
+        <FaSync className={isRefreshing ? "animate-spin" : ""} />
+        {isRefreshing ? "در حال تلاش..." : "تلاش مجدد"}
+      </button>
+    </div>
+  </div>
+);
 
-	const formatNumber = (number) => {
-		return new Intl.NumberFormat("fa-AF").format(number);
-	};
+const StatCard = ({ stat, isLoading }) => {
+  const Icon = stat.icon;
+  return (
+    <div className="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-gray-100 p-5 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+      {/* Gradient accent bar */}
+      <div
+        className={`absolute top-0 right-0 w-1.5 h-full bg-gradient-to-b ${stat.color}`}
+      />
 
-	const formatTime = (date) => {
-		return new Intl.DateTimeFormat("fa-AF", {
-			hour: "2-digit",
-			minute: "2-digit",
-			second: "2-digit",
-		}).format(date);
-	};
+      <div className="flex items-start justify-between mb-4">
+        <div className={`${stat.bgColor} p-3 rounded-xl`}>
+          <Icon className={`${stat.iconColor} text-xl`} />
+        </div>
+        {stat.trend && !isLoading && (
+          <span
+            className={`text-xs font-bold px-2 py-1 rounded-full ${
+              stat.trend.startsWith("+")
+                ? "bg-green-50 text-green-700"
+                : "bg-red-50 text-red-700"
+            }`}
+          >
+            {stat.trend}
+          </span>
+        )}
+      </div>
 
-	// Loading State
-	if (loading && !reportData) {
-		return (
-			<div className="min-h-screen bg-white flex items-center justify-center p-4">
-				<div className="text-center max-w-md">
-					<div className="relative">
-						<div className="w-20 h-20 border-4 border-blue-100 rounded-full mx-auto mb-6"></div>
-						<div className="w-20 h-20 border-4 border-blue-600 border-t-transparent rounded-full animate-spin absolute top-0 left-1/2 transform -translate-x-1/2"></div>
-					</div>
-					<h3 className="text-xl font-semibold text-gray-700 mb-2">
-						در حال بارگذاری داشبورد
-					</h3>
-					<p className="text-gray-500">دریافت آخرین اطلاعات...</p>
-				</div>
-			</div>
-		);
-	}
+      <div>
+        <p className="text-sm text-gray-500 font-medium mb-1">{stat.title}</p>
+        <h3 className="text-xl lg:text-2xl font-bold text-gray-800 tabular-nums">
+          {isLoading ? (
+            <span className="inline-block w-24 h-7 bg-gray-100 rounded animate-pulse" />
+          ) : (
+            stat.value
+          )}
+        </h3>
+        {stat.description && (
+          <p className="text-xs text-gray-400 mt-2 flex items-center gap-1">
+            <FaInfoCircle className="text-[10px]" />
+            {stat.description}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+};
 
-	// Error State
-	if (error && !reportData) {
-		return (
-			<div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-				<div className="bg-white rounded-2xl shadow-xl p-8 max-w-md text-center border border-red-100">
-					<div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-						<FaExclamationTriangle className="text-red-500 text-2xl" />
-					</div>
-					<h3 className="text-xl font-bold text-gray-800 mb-3">خطا در اتصال</h3>
-					<p className="text-gray-600 mb-6">{error}</p>
-					<button
-						onClick={() => fetchReportData()}
-						className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-8 py-3 rounded-xl font-semibold transition-all duration-200 flex items-center justify-center gap-3 mx-auto shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-					>
-						<FaSync className={isRefreshing ? "animate-spin" : ""} />
-						تلاش مجدد
-					</button>
-				</div>
-			</div>
-		);
-	}
+const FilterPanel = ({
+  startDate,
+  endDate,
+  reportType,
+  setStartDate,
+  setEndDate,
+  setReportType,
+  onApply,
+  onClear,
+  isLoading,
+}) => (
+  <div className="bg-white rounded-2xl shadow-lg p-6 mb-6 border border-gray-100">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          تاریخ شروع
+        </label>
+        <div className="relative">
+          <DatePicker
+            selected={startDate}
+            onChange={(date) => setStartDate(date)}
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm"
+            placeholderText="انتخاب تاریخ شروع"
+            selectsStart
+            startDate={startDate}
+            endDate={endDate}
+            maxDate={endDate || new Date()}
+            isClearable
+          />
+          <FaCalendarAlt className="absolute left-3 top-3 text-gray-400 pointer-events-none" />
+        </div>
+      </div>
 
-	if (!reportData) return null;
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          تاریخ پایان
+        </label>
+        <div className="relative">
+          <DatePicker
+            selected={endDate}
+            onChange={(date) => setEndDate(date)}
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm"
+            placeholderText="انتخاب تاریخ پایان"
+            selectsEnd
+            startDate={startDate}
+            endDate={endDate}
+            minDate={startDate}
+            maxDate={new Date()}
+            isClearable
+          />
+          <FaCalendarAlt className="absolute left-3 top-3 text-gray-400 pointer-events-none" />
+        </div>
+      </div>
 
-	const {
-		totalRemainedMoney,
-		deliveredOrdersCount,
-		notDeliveredOrdersCount,
-		totalReceivedMoney,
-		totalPendingMoney,
-		totalOrdersCount,
-		timeRange,
-		totalPieces,
-		totalIncome,
-	} = reportData;
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          نوع گزارش
+        </label>
+        <select
+          value={reportType}
+          onChange={(e) => setReportType(e.target.value)}
+          className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white text-sm"
+        >
+          {REPORT_TYPES.map((type) => (
+            <option key={type.value} value={type.value}>
+              {type.label}
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
 
-	const deliveryRate =
-		totalOrdersCount > 0 ? (deliveredOrdersCount / totalOrdersCount) * 100 : 0;
+    <div className="flex flex-wrap justify-end gap-3 mt-6 pt-6 border-t border-gray-100">
+      <button
+        onClick={onClear}
+        disabled={isLoading}
+        className="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors duration-200 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+      >
+        <FaTimes /> پاک کردن فیلترها
+      </button>
+      <button
+        onClick={onApply}
+        disabled={isLoading}
+        className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-md hover:shadow-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+      >
+        {isLoading ? <FaSync className="animate-spin" /> : <FaFilter />}
+        اعمال فیلترها
+      </button>
+    </div>
+  </div>
+);
 
-	const statsCards = [
-		{
-			title: "کل درآمد",
-			value: formatCurrency(totalIncome),
-			icon: FaMoneyBillWave,
-			color: "from-blue-600 to-blue-800",
-			bgColor: "bg-blue-50",
-			iconColor: "text-blue-600",
-			description: "مجموع درآمد ",
-			role: "admin",
-			trend: "+12%",
-		},
-		{
-			title: "دریافتی‌ها",
-			value: formatCurrency(totalReceivedMoney),
-			icon: FaWallet,
-			color: "from-emerald-500 to-emerald-700",
-			bgColor: "bg-emerald-50",
-			iconColor: "text-emerald-600",
-			description: "مبلغ دریافت شده",
-			role: "admin",
-			trend: "+8%",
-		},
-		{
-			title: "مانده حساب",
-			value: formatCurrency(totalPendingMoney),
-			icon: FaDollarSign,
-			color: "from-amber-500 to-amber-700",
-			bgColor: "bg-amber-50",
-			iconColor: "text-amber-600",
-			description: "مبلغ باقیمانده",
-			role: "admin",
-			trend: "-3%",
-		},
-		{
-			title: "تعداد بسته‌ها",
-			value: formatNumber(totalPieces),
-			icon: FaBoxes,
-			color: "from-purple-500 to-purple-700",
-			bgColor: "bg-purple-50",
-			iconColor: "text-purple-600",
-			description: "تعداد کل بسته های ثبت شده",
-			role: "reception",
-			trend: "+15%",
-		},
-	];
+const DeliveryProgress = ({ reportData, formatNumber }) => {
+  const {
+    totalOrdersCount = 0,
+    deliveredOrdersCount = 0,
+    notDeliveredOrdersCount = 0,
+  } = reportData;
 
-	const visibleCards = statsCards.filter(
-		(card) => card.role === currentUser.role || currentUser.role === "admin"
-	);
+  const deliveryRate =
+    totalOrdersCount > 0 ? (deliveredOrdersCount / totalOrdersCount) * 100 : 0;
 
-	return (
-		<div className=" p-3  md:p-6 ">
-			{/* Header Section */}
-			<div className="mb-8  w-full">
-				<div className="">
-					{currentUser.role === "admin" && (
-						<div className="">
-							<PackageDownload />
-						</div>
-					)}
-				</div>
-				<div className="">
-					<RunReportDownload/>
-				</div>
+  return (
+    <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+      <div className="flex items-center justify-between mb-5">
+        <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+          <FaTruck className="text-blue-600" />
+          وضعیت تحویل سفارشات
+        </h3>
+        <span className="text-sm font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
+          {deliveryRate.toFixed(1)}%
+        </span>
+      </div>
 
-				{/* Filters Panel */}
-				{/* {showFilters && (
-          <div className="bg-white rounded-2xl shadow-lg p-6 mb-6 border border-gray-100 animate-slideDown">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  تاریخ شروع
-                </label>
-                <div className="relative">
-                  <DatePicker
-                    selected={startDate}
-                    onChange={(date) => setStartDate(date)}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                    placeholderText="انتخاب تاریخ شروع"
-                  />
-                  <FaCalendarAlt className="absolute left-3 top-3 text-gray-400" />
-                </div>
-              </div>
+      <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden mb-6">
+        <div
+          className="h-full bg-gradient-to-r from-blue-500 to-emerald-500 rounded-full transition-all duration-500"
+          style={{ width: `${Math.min(deliveryRate, 100)}%` }}
+        />
+      </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  تاریخ پایان
-                </label>
-                <div className="relative">
-                  <DatePicker
-                    selected={endDate}
-                    onChange={(date) => setEndDate(date)}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                    placeholderText="انتخاب تاریخ پایان"
-                  />
-                  <FaCalendarAlt className="absolute left-3 top-3 text-gray-400" />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  نوع گزارش
-                </label>
-                <select
-                  value={reportType}
-                  onChange={(e) => setReportType(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white"
-                >
-                  <option value="all">همه سفارشات</option>
-                  <option value="delivered">تحویل شده</option>
-                  <option value="pending">در انتظار</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-gray-100">
-              <button
-                onClick={() => {
-                  setStartDate(null);
-                  setEndDate(null);
-                  setReportType("all");
-                }}
-                className="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors duration-200"
-              >
-                پاک کردن فیلترها
-              </button>
-              <button
-                onClick={() => fetchReportData(startDate, endDate, reportType)}
-                className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-md hover:shadow-lg"
-              >
-                اعمال فیلترها
-              </button>
-            </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+        <div className="bg-gray-50 rounded-xl p-4">
+          <div className="flex items-center gap-2 text-gray-500 text-xs mb-1">
+            <FaBoxOpen /> کل سفارشات
           </div>
-        )} */}
-			</div>
+          <p className="text-xl font-bold text-gray-800">
+            {formatNumber(totalOrdersCount)}
+          </p>
+        </div>
+        <div className="bg-emerald-50 rounded-xl p-4">
+          <div className="flex items-center gap-2 text-emerald-600 text-xs mb-1">
+            <FaCheckCircle /> تحویل شده
+          </div>
+          <p className="text-xl font-bold text-emerald-700">
+            {formatNumber(deliveredOrdersCount)}
+          </p>
+        </div>
+        <div className="bg-amber-50 rounded-xl p-4">
+          <div className="flex items-center gap-2 text-amber-600 text-xs mb-1">
+            <FaClock /> در انتظار
+          </div>
+          <p className="text-xl font-bold text-amber-700">
+            {formatNumber(notDeliveredOrdersCount)}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
 
-			{/* Stats Grid */}
-			<div className="grid grid-cols-1 sm:grid-cols-2  gap-5 mb-8">
-				<ReceiptsManager/>
-			</div>
-			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 mb-8">
-				{reportData.locations.map((card, index) => {
-					// Generate different colors for each card
-					const colorClasses = [
-						{
-							bg: "from-blue-500 to-blue-600",
-							icon: "bg-blue-100",
-							text: "text-blue-600",
-						},
-						{
-							bg: "from-emerald-500 to-emerald-600",
-							icon: "bg-emerald-100",
-							text: "text-emerald-600",
-						},
-						{
-							bg: "from-purple-500 to-purple-600",
-							icon: "bg-purple-100",
-							text: "text-purple-600",
-						},
-						{
-							bg: "from-amber-500 to-amber-600",
-							icon: "bg-amber-100",
-							text: "text-amber-600",
-						},
-						{
-							bg: "from-rose-500 to-rose-600",
-							icon: "bg-rose-100",
-							text: "text-rose-600",
-						},
-						{
-							bg: "from-cyan-500 to-cyan-600",
-							icon: "bg-cyan-100",
-							text: "text-cyan-600",
-						},
-						{
-							bg: "from-violet-500 to-violet-600",
-							icon: "bg-violet-100",
-							text: "text-violet-600",
-						},
-						{
-							bg: "from-lime-500 to-lime-600",
-							icon: "bg-lime-100",
-							text: "text-lime-600",
-						},
-					];
+const PerformanceSummary = ({ reportData, formatNumber }) => {
+  const {
+    totalOrdersCount = 0,
+    deliveredOrdersCount = 0,
+    notDeliveredOrdersCount = 0,
+    timeRange,
+  } = reportData;
 
-					const colors = colorClasses[index % colorClasses.length];
+  const deliveryRate =
+    totalOrdersCount > 0 ? (deliveredOrdersCount / totalOrdersCount) * 100 : 0;
 
-					return (
-						<div
-							key={index}
-							className="bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 overflow-hidden group cursor-pointer"
-						>
-							<div className={`p-1 bg-gradient-to-r ${colors.bg}`}>
-								<div className="bg-white rounded-2xl p-6">
-									<div className="flex items-start justify-between mb-5">
-										<div
-											className={`p-3 rounded-xl ${colors.icon} flex items-center justify-center`}
-										>
-											<span className={`text-lg font-bold ${colors.text}`}>
-												{card.location.charAt(0)}
-											</span>
-										</div>
-										<div className="flex flex-col items-end">
-											<span className="text-xs font-medium text-gray-500 bg-gray-100 px-3 py-1.5 rounded-full mb-1">
-												شماره {index + 1}
-											</span>
-											<span className="text-2xl font-bold  bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-												{card.count.toLocaleString("fa-IR")}
-											</span>
-										</div>
-									</div>
+  // ✅ Safely format timeRange whether it's a string, object, or null
+  const formatTimeRange = (range) => {
+    if (!range) return "همه";
+    if (typeof range === "string") return range;
+    if (typeof range === "object") {
+      const { startDate, endDate, hasTimeRange } = range;
+      if (!hasTimeRange || (!startDate && !endDate)) return "همه";
+      if (startDate && endDate) return `${startDate} تا ${endDate}`;
+      if (startDate) return `از ${startDate}`;
+      if (endDate) return `تا ${endDate}`;
+      return "همه";
+    }
+    return "همه";
+  };
 
-									<div className="mb-4">
-										<h3 className="text-lg font-bold text-gray-900 mb-2 truncate">
-											{card.location}
-										</h3>
-									</div>
-								</div>
-							</div>
-						</div>
-					);
-				})}
-			</div>
+  return (
+    <div className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-2xl shadow-sm p-6 text-white">
+      <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+        <FaChartLine />
+        خلاصه عملکرد
+      </h3>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between border-b border-white/20 pb-3">
+          <span className="text-sm opacity-90">نرخ تحویل</span>
+          <span className="font-bold">{deliveryRate.toFixed(1)}%</span>
+        </div>
+        <div className="flex items-center justify-between border-b border-white/20 pb-3">
+          <span className="text-sm opacity-90">سفارشات فعال</span>
+          <span className="font-bold">
+            {formatNumber(notDeliveredOrdersCount)}
+          </span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-sm opacity-90">بازه زمانی</span>
+          <span className="font-bold text-xs">
+            {formatTimeRange(timeRange)}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};
 
-			{/* Detailed Financial Section */}
-			{currentUser.role === "admin" && (
-				<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-					{/* Financial Summary */}
-					<div className="bg-white rounded-md shadow-md p-6 ">
-						<div className="flex items-center justify-between mb-6">
-							<div className="flex items-center gap-3">
-								<div className="p-3 bg-primary rounded-md">
-									<FaMoneyBillWave className="text-white text-xl" />
-								</div>
-								<div>
-									<h2 className="text-xl font-bold text-gray-900">
-										خلاصه مالی
-									</h2>
-									<p className="text-sm text-gray-500">وضعیت مالی کلی سیستم</p>
-								</div>
-							</div>
-							<div className="text-xs text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
-								امروز
-							</div>
-						</div>
+// ============================================================
+// MAIN COMPONENT
+// ============================================================
 
-						<div className="space-y-3">
-							<div className="flex justify-between items-center p-4 rounded-md bg-green-50 border border-green-100">
-								<div className="flex items-center gap-3">
-									<div className="p-2 bg-green-100 rounded-lg">
-										<FaWallet className="text-green-600" />
-									</div>
-									<div>
-										<div className="text-sm text-gray-600">مجموع دریافتی</div>
-										<div className="text-lg font-bold text-gray-900">
-											{formatCurrency(totalReceivedMoney)}
-										</div>
-									</div>
-								</div>
-								<div className="text-sm text-green-600 font-medium">+12%</div>
-							</div>
+const DashboardHome = () => {
+  // ---- State ----
+  const [reportData, setReportData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [startDate, setStartDate] = useState(null);
+  const [endDate, setEndDate] = useState(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [reportType, setReportType] = useState("all");
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-							<div
-								onClick={() => setShowModel(!showModel)}
-								className="flex justify-between items-center p-4 rounded-md bg-amber-50 border border-amber-100"
-							>
-								<div className="flex items-center gap-3">
-									<div className="p-2 bg-amber-100 rounded-lg">
-										<FaClock className="text-amber-600" />
-									</div>
-									<div>
-										<div className="text-sm text-gray-600">مجموع باقیمانده</div>
-										<div className="text-lg font-bold text-gray-900">
-											{formatCurrency(totalPendingMoney)}
-										</div>
-									</div>
-								</div>
-								<div className="text-sm text-amber-600 font-medium">
-									در انتظار
-								</div>
-							</div>
+  const { currentUser } = useSelector((state) => state.user);
 
-							<div className="flex justify-between items-center p-4 rounded-md bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-100">
-								<div className="flex items-center gap-3">
-									<div className="p-2 bg-blue-100 rounded-lg">
-										<FaChartLine className="text-blue-600" />
-									</div>
-									<div>
-										<div className="text-sm text-gray-600">درآمد کل</div>
-										<div className="text-xl font-bold text-blue-800">
-											{formatCurrency(totalIncome)}
-										</div>
-									</div>
-								</div>
-								<div className="text-sm font-medium text-blue-600">
-									نمای کلی
-								</div>
-							</div>
-						</div>
-					</div>
-				</div>
-			)}
-		</div>
-	);
+  // ---- Data Fetching ----
+  const fetchReportData = useCallback(
+    async (start = null, end = null, type = "all") => {
+      try {
+        setLoading(true);
+        setIsRefreshing(true);
+        setError(null);
+
+        const params = {};
+        if (start) params.startDate = start.toISOString().split("T")[0];
+        if (end) params.endDate = end.toISOString().split("T")[0];
+        if (type !== "all") params.type = type;
+
+        const response = await axios.get(`${BASE_URL}/report`, { params });
+        setReportData(response.data.data);
+        setLastUpdated(new Date());
+      } catch (err) {
+        console.error("Error fetching report data:", err);
+        const errorMessage =
+          err.response?.data?.message ||
+          err.message ||
+          "خطا در دریافت اطلاعات";
+        setError(errorMessage);
+      } finally {
+        setLoading(false);
+        setIsRefreshing(false);
+      }
+    },
+    []
+  );
+
+  // ---- Effects ----
+  useEffect(() => {
+    fetchReportData();
+  }, [fetchReportData]);
+
+  // ---- Formatters ----
+  const formatCurrency = useCallback((amount) => {
+    if (amount == null || isNaN(amount)) return "0 دالر";
+    return new Intl.NumberFormat("fa-AF").format(amount) + " دالر";
+  }, []);
+
+  const formatNumber = useCallback((number) => {
+    if (number == null || isNaN(number)) return "0";
+    return new Intl.NumberFormat("fa-AF").format(number);
+  }, []);
+
+  const formatTime = useCallback((date) => {
+    if (!date) return "-";
+    return new Intl.DateTimeFormat("fa-AF", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    }).format(date);
+  }, []);
+
+  // ---- Handlers ----
+  const handleApplyFilters = useCallback(() => {
+    fetchReportData(startDate, endDate, reportType);
+  }, [fetchReportData, startDate, endDate, reportType]);
+
+  const handleClearFilters = useCallback(() => {
+    setStartDate(null);
+    setEndDate(null);
+    setReportType("all");
+  }, []);
+
+  const handleRefresh = useCallback(() => {
+    fetchReportData(startDate, endDate, reportType);
+  }, [fetchReportData, startDate, endDate, reportType]);
+
+  // ---- Computed Stats ----
+  const statsCards = useMemo(() => {
+    if (!reportData) return [];
+
+    const {
+      totalIncome = 0,
+      totalReceivedMoney = 0,
+      totalPendingMoney = 0,
+      totalPieces = 0,
+    } = reportData;
+
+    return [
+      {
+        title: "کل درآمد",
+        value: formatCurrency(totalIncome),
+        icon: FaMoneyBillWave,
+        color: "from-blue-600 to-blue-800",
+        bgColor: "bg-blue-50",
+        iconColor: "text-blue-600",
+        description: "مجموع درآمد",
+        role: "admin",
+        trend: "+12%",
+      },
+      {
+        title: "دریافتی‌ها",
+        value: formatCurrency(totalReceivedMoney),
+        icon: FaWallet,
+        color: "from-emerald-500 to-emerald-700",
+        bgColor: "bg-emerald-50",
+        iconColor: "text-emerald-600",
+        description: "مبلغ دریافت شده",
+        role: "admin",
+        trend: "+8%",
+      },
+      {
+        title: "مانده حساب",
+        value: formatCurrency(totalPendingMoney),
+        icon: FaDollarSign,
+        color: "from-amber-500 to-amber-700",
+        bgColor: "bg-amber-50",
+        iconColor: "text-amber-600",
+        description: "مبلغ باقیمانده",
+        role: "admin",
+        trend: "-3%",
+      },
+      {
+        title: "تعداد بسته‌ها",
+        value: formatNumber(totalPieces),
+        icon: FaBoxes,
+        color: "from-purple-500 to-purple-700",
+        bgColor: "bg-purple-50",
+        iconColor: "text-purple-600",
+        description: "تعداد کل بسته‌های ثبت شده",
+        role: "reception",
+        trend: "+15%",
+      },
+    ];
+  }, [reportData, formatCurrency, formatNumber]);
+
+  const visibleCards = useMemo(() => {
+    if (!currentUser) return [];
+    return statsCards.filter(
+      (card) =>
+        card.role === currentUser.role || currentUser.role === "admin"
+    );
+  }, [statsCards, currentUser]);
+
+  // ---- Render: Loading ----
+  if (loading && !reportData) {
+    return <LoadingState />;
+  }
+
+  // ---- Render: Error ----
+  if (error && !reportData) {
+    return (
+      <ErrorState
+        error={error}
+        onRetry={handleRefresh}
+        isRefreshing={isRefreshing}
+      />
+    );
+  }
+
+  if (!reportData) return null;
+
+  // ---- Render: Main ----
+  return (
+    <div className="p-3 md:p-6 bg-gray-50 min-h-screen">   
+          <ReceiptsManager />    
+    </div>
+  );
 };
 
 export default DashboardHome;

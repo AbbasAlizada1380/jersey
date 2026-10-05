@@ -67,7 +67,7 @@ export default function HoldersPage({ refreshKey = 0, onChanged }) {
         setError(
           err?.response?.data?.message ||
             err.message ||
-            "خطا در دریافت حاملین"
+            "خطا در دریافت سهام داران"
         );
         setHolders([]);
       } finally {
@@ -137,7 +137,7 @@ export default function HoldersPage({ refreshKey = 0, onChanged }) {
       onChanged?.();
 
       setSuccessMessage(
-        editingId ? "تغییرات ذخیره شد" : "حامل جدید ثبت شد"
+        editingId ? "تغییرات ذخیره شد" : "سهام دار  جدید ثبت شد"
       );
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
@@ -152,18 +152,18 @@ export default function HoldersPage({ refreshKey = 0, onChanged }) {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("آیا از حذف این حامل اطمینان دارید؟")) return;
+    if (!window.confirm("آیا از حذف این سهام دار  اطمینان دارید؟")) return;
     try {
       await axios.delete(`${BASE_URL}/holders/${id}`);
       fetchHolders(page);
       onChanged?.();
-      setSuccessMessage("حامل حذف شد");
+      setSuccessMessage("سهام دار  حذف شد");
       setTimeout(() => setSuccessMessage(null), 2500);
     } catch (err) {
       setError(
         err?.response?.data?.message ||
           err.message ||
-          "خطا در حذف حامل"
+          "خطا در حذف سهام دار "
       );
     }
   };
@@ -199,10 +199,10 @@ export default function HoldersPage({ refreshKey = 0, onChanged }) {
           </div>
           <div>
             <h2 className="text-base font-bold text-gray-900">
-              حاملین
+              سهام داران
             </h2>
             <p className="text-xs text-gray-500">
-              {totalItems} حامل ثبت شده
+              {totalItems} سهام دار  ثبت شده
             </p>
           </div>
         </div>
@@ -225,7 +225,7 @@ export default function HoldersPage({ refreshKey = 0, onChanged }) {
             className="px-4 py-2 bg-gradient-to-r from-primary to-primary/80 text-white rounded-xl hover:opacity-90 transition flex items-center gap-2 shadow-sm whitespace-nowrap"
           >
             <FaPlus />
-            افزودن حامل
+            افزودن سهام دار 
           </button>
         </div>
       </div>
@@ -248,9 +248,9 @@ export default function HoldersPage({ refreshKey = 0, onChanged }) {
             <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-primary/10 flex items-center justify-center">
               <FaUserTie className="text-primary text-2xl" />
             </div>
-            <p className="text-gray-500">هیچ حاملی ثبت نشده است</p>
+            <p className="text-gray-500">هیچ سهام دار ی ثبت نشده است</p>
             <p className="text-gray-400 text-xs mt-1">
-              برای شروع، روی «افزودن حامل» کلیک کنید
+              برای شروع، روی «افزودن سهام دار » کلیک کنید
             </p>
           </div>
         ) : (
@@ -286,7 +286,7 @@ export default function HoldersPage({ refreshKey = 0, onChanged }) {
                     </td>
                     <td
                       className="px-4 py-3 text-sm text-gray-700 font-mono"
-                      dir="ltr"
+                    
                     >
                       {h.NIC}
                     </td>
@@ -346,12 +346,12 @@ export default function HoldersPage({ refreshKey = 0, onChanged }) {
                 </div>
                 <div>
                   <h3 className="font-bold">
-                    {editingId ? "ویرایش حامل" : "افزودن حامل"}
+                    {editingId ? "ویرایش سهام دار " : "افزودن سهام دار "}
                   </h3>
                   <p className="text-xs text-white/80">
                     {editingId
-                      ? `ویرایش اطلاعات حامل #${editingId}`
-                      : "ثبت اطلاعات حامل جدید"}
+                      ? `ویرایش اطلاعات سهام دار  #${editingId}`
+                      : "ثبت اطلاعات سهام دار  جدید"}
                   </p>
                 </div>
               </div>
@@ -382,7 +382,7 @@ export default function HoldersPage({ refreshKey = 0, onChanged }) {
                     onChange={(e) =>
                       setForm({ ...form, fullName: e.target.value })
                     }
-                    placeholder="نام کامل حامل"
+                    placeholder="نام کامل سهام دار "
                     className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary focus:border-primary"
                     disabled={submitting}
                     required
@@ -434,7 +434,7 @@ export default function HoldersPage({ refreshKey = 0, onChanged }) {
                     ) : (
                       <>
                         <FaCheckCircle />
-                        {editingId ? "ذخیره تغییرات" : "ثبت حامل"}
+                        {editingId ? "ذخیره تغییرات" : "ثبت سهام دار "}
                       </>
                     )}
                   </button>

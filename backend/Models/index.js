@@ -5,6 +5,7 @@ import sequelize from "../dbconnection.js";
 import Staff from "./staff/staff.js";
 import SalaryList from "./staff/salary/salaryList.js";
 import Attendance from "./staff/salary/Attendence.js";
+import PaidSalary from "./staff/salary/paidSalary.js"; // ✅ NEW
 import Bill from "./orders/Bill.js";
 import Order from "./orders/Order.js";
 import Customer from "./Customer.js";
@@ -12,6 +13,7 @@ import Receipt from "./orders/Receipt.js";
 import Holder from "./holder/Holder.js";
 import Valet from "./holder/Valet.js";
 
+/* ---------- Holder <-> Valet ---------- */
 Holder.hasMany(Valet, {
   foreignKey: "holder",
   as: "valets",
@@ -25,6 +27,7 @@ Valet.belongsTo(Holder, {
   onUpdate: "CASCADE",
   onDelete: "RESTRICT",
 });
+
 /* ---------- Customer <-> Receipt ---------- */
 Customer.hasMany(Receipt, {
   foreignKey: "customer",
@@ -39,6 +42,7 @@ Receipt.belongsTo(Customer, {
   onUpdate: "CASCADE",
   onDelete: "SET NULL",
 });
+
 /* ---------- Bill <-> Order ----------
    A bill has many orders.
    Each order belongs to one bill (nullable — an order may exist before being attached).
@@ -56,7 +60,8 @@ Order.belongsTo(Bill, {
   onUpdate: "CASCADE",
   onDelete: "SET NULL",
 });
-// ✅ KEEP: SalaryList <-> Attendance
+
+/* ---------- SalaryList <-> Attendance ---------- */
 SalaryList.hasMany(Attendance, {
   foreignKey: "list",
   as: "attendances",
@@ -71,7 +76,7 @@ Attendance.belongsTo(SalaryList, {
   onDelete: "CASCADE",
 });
 
-// ✅ KEEP: Staff <-> Attendance
+/* ---------- Staff <-> Attendance ---------- */
 Staff.hasMany(Attendance, {
   foreignKey: "staffId",
   as: "attendances",
@@ -85,18 +90,37 @@ Attendance.belongsTo(Staff, {
   onUpdate: "CASCADE",
   onDelete: "RESTRICT",
 });
+
+/* ---------- ✅ Attendance <-> PaidSalary (NEW) ----------
+   One attendance record can have many payments (partial payments supported).
+   Deleting an attendance cascades and removes its payments too.
+*/
+Attendance.hasMany(PaidSalary, {
+  foreignKey: "attendanceId",
+  as: "payments",
+  onUpdate: "CASCADE",
+  onDelete: "CASCADE",
+});
+
+PaidSalary.belongsTo(Attendance, {
+  foreignKey: "attendanceId",
+  as: "attendance",
+  onUpdate: "CASCADE",
+  onDelete: "CASCADE",
+});
+
 export {
   sequelize,
   Staff,
   SalaryList,
   Attendance,
+  PaidSalary, // ✅ NEW
   Bill,
   Order,
   Customer,
   Receipt,
   Valet,
-  Holder
-
+  Holder,
 };
 
 export default {
@@ -104,10 +128,11 @@ export default {
   Staff,
   SalaryList,
   Attendance,
+  PaidSalary, // ✅ NEW
   Bill,
   Order,
   Customer,
   Receipt,
   Valet,
-  Holder
+  Holder,
 };

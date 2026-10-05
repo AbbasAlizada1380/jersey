@@ -1,5 +1,5 @@
 // controllers/salaryList.controller.js
-import { SalaryList, Attendance, Staff } from "../../../Models/index.js";
+import { SalaryList, Attendance, Staff, PaidSalary } from "../../../Models/index.js";
 /* ---------------------------------------------------------
    Default attendance JSON for a new period
    --------------------------------------------------------- */
@@ -192,6 +192,107 @@ export const deleteSalaryList = async (req, res) => {
   } catch (err) {
     await transaction.rollback();
     console.error("deleteSalaryList error:", err);
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+
+export const getPaidSalariesDailyReport = async (req, res) => {
+  try {
+    const { from, to } = req.query;
+    const { Op } = await import("sequelize");
+
+    /* ---------- 1. Build WHERE clause ---------- */
+    const where = {};
+    if (from || to) {
+      where.createdAt = {};
+      if (from) where.createdAt[Op.gte] = new Date(`${from}T00:00:00.000Z`);
+      if (to) where.createdAt[Op.lte] = new Date(`${to}T23:59:59.999Z`);
+    }
+
+    /* ---------- 2. Fetch all PaidSalary rows in range ---------- */
+    const rows = await PaidSalary.findAll({
+      where,
+      include: [
+        {
+          model: Attendance,
+          as: "attendance",
+          attributes: ["id", "staffId", "list", "salary", "overtime", "total"],
+          include: [
+            { model: Staff, as: "staff", attributes: ["id", "name"] },
+            {
+              model: SalaryList,
+              as: "salaryList",
+              attributes: ["id", "name", "range"],
+            },
+          ],
+        },
+      ],
+      order: [["createdAt", "DESC"]],
+    });
+
+    /* ---------- 3. Flatten to a plain shape ---------- */
+    const flat = rows.map((p) => ({
+      id: p.id,
+      amount: Number(p.amount),
+      paidAt: p.createdAt,
+      date: p.createdAt ? p.createdAt.toISOString().slice(0, 10) : null,
+      note: p.note,
+      attendanceId: p.attendanceId,
+      staffId: p.attendance?.staffId || null,
+      staffName: p.attendance?.staff?.name || "—",
+      listId: p.attendance?.list || null,
+      listName: p.attendance?.salaryList?.name || "—",
+      listRange: p.attendance?.salaryList?.range || "—",
+      attendanceTotal: Number(p.attendance?.total || 0),
+    }));
+
+    /* ---------- 4. Group by day ---------- */
+    const dayMap = new Map(); // date → { totalPaid, count, payments[] }
+
+    for (const p of flat) {
+      if (!p.date) continue; // skip rows without a date
+
+      if (!dayMap.has(p.date)) {
+        dayMap.set(p.date, {
+          date: p.date,
+          totalPaid: 0,
+          count: 0,
+          payments: [],
+        });
+      }
+
+      const bucket = dayMap.get(p.date);
+      bucket.totalPaid += p.amount;
+      bucket.count += 1;
+      bucket.payments.push(p);
+    }
+
+    /* ---------- 5. Convert to sorted array (newest first) ---------- */
+    const days = Array.from(dayMap.values())
+      .map((d) => ({
+        ...d,
+        totalPaid: Number(d.totalPaid.toFixed(2)),
+      }))
+      .sort((a, b) => b.date.localeCompare(a.date));
+
+    /* ---------- 6. Overall totals ---------- */
+    const totalPaid = flat.reduce((s, p) => s + p.amount, 0);
+    const totalCount = flat.length;
+    const daysCount = days.length;
+
+    /* ---------- 7. Respond ---------- */
+    return res.json({
+      from: from || null,
+      to: to || null,
+      totalPaid: Number(totalPaid.toFixed(2)),
+      totalCount,
+      daysCount,
+      days,       // aggregated per day
+      payments: flat, // flat list (in case client wants it)
+    });
+  } catch (err) {
+    console.error("getPaidSalariesDailyReport error:", err);
     return res.status(500).json({ error: err.message });
   }
 };
