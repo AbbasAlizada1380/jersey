@@ -1,5 +1,10 @@
+// src/components/customers/CustomerReceipts.jsx
 import { useEffect, useState, useCallback } from "react";
 import axios from "axios";
+import moment from "moment-jalaali";
+import DatePicker from "react-multi-date-picker";
+import persian from "react-date-object/calendars/persian";
+import persian_fa from "react-date-object/locales/persian_fa";
 import {
   FaReceipt,
   FaSpinner,
@@ -11,10 +16,13 @@ import {
 } from "react-icons/fa";
 import Pagination from "../../pagination/Pagination.jsx";
 import PrintBill from "./PrintBill.jsx";
-import { downloadReceiptsReportPDF } from "../order/downloadReceiptsReportPDF.jsx"; // ← adjust path
+import { downloadReceiptsReportPDF } from "../order/downloadReceiptsReportPDF.jsx";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 const LIMIT = 10;
+
+/* ✅ Load Persian locale once */
+moment.loadPersian({ usePersianDigits: false, dialect: "persian-modern" });
 
 /* ---------------- helpers ---------------- */
 const formatCurrency = (amount) => {
@@ -22,15 +30,36 @@ const formatCurrency = (amount) => {
   return new Intl.NumberFormat("en-US").format(Number(amount)) + " افغانی";
 };
 
+/* ✅ Shamsi date-time formatter */
 const formatDateTime = (d) => {
   if (!d) return "—";
-  return new Intl.DateTimeFormat("en-GB", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(d));
+  try {
+    return moment(d).format("jYYYY/jMM/jDD HH:mm");
+  } catch {
+    return "—";
+  }
+};
+
+/* ✅ Shamsi date formatter (date only) */
+const formatShamsi = (d) => {
+  if (!d) return "—";
+  try {
+    return moment(d).format("jYYYY/jMM/jDD");
+  } catch {
+    return "—";
+  }
+};
+
+/* ✅ Convert JS Date or ISO string → "YYYY-MM-DD" (for API params) */
+const toISODate = (d) => {
+  if (!d) return "";
+  try {
+    const m = moment(d);
+    if (!m.isValid()) return "";
+    return m.format("YYYY-MM-DD");
+  } catch {
+    return "";
+  }
 };
 
 /* Columns definition for the PDF export */
@@ -53,6 +82,7 @@ const PDF_COLUMNS = [
   {
     key: "createdAt",
     label: "تاریخ و زمان",
+    /* ✅ Return Shamsi string directly — the PDF will pass it through */
     value: (r) => formatDateTime(r.createdAt),
   },
 ];
@@ -75,9 +105,9 @@ export default function CustomerReceipts({
   const [printReceipt, setPrintReceipt] = useState(null);
   const [printOpen, setPrintOpen] = useState(false);
 
-  /* filter */
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  /* ✅ filter — holds Date objects (from Shamsi picker) */
+  const [from, setFrom] = useState(null);
+  const [to, setTo] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
 
   const fetchReceipts = useCallback(
@@ -92,8 +122,8 @@ export default function CustomerReceipts({
           page: p,
           limit: LIMIT,
         };
-        if (from) params.from = from;
-        if (to) params.to = to;
+        if (from) params.from = toISODate(from);
+        if (to) params.to = toISODate(to);
 
         const res = await axios.get(`${BASE_URL}/receipts`, { params });
         setReceipts(res.data.receipts || []);
@@ -104,8 +134,8 @@ export default function CustomerReceipts({
       } catch (err) {
         setError(
           err?.response?.data?.message ||
-          err.message ||
-          "خطا در دریافت رسیدها"
+            err.message ||
+            "خطا در دریافت رسیدها"
         );
         setReceipts([]);
       } finally {
@@ -121,8 +151,8 @@ export default function CustomerReceipts({
   }, [customer?.id, from, to, refreshKey]);
 
   const clearFilters = () => {
-    setFrom("");
-    setTo("");
+    setFrom(null);
+    setTo(null);
   };
 
   /* ---------------- Download PDF ---------------- */
@@ -138,8 +168,8 @@ export default function CustomerReceipts({
         page: 1,
         limit: 10000,
       };
-      if (from) params.from = from;
-      if (to) params.to = to;
+      if (from) params.from = toISODate(from);
+      if (to) params.to = toISODate(to);
 
       const res = await axios.get(`${BASE_URL}/receipts`, { params });
       const allRows = res.data.receipts || [];
@@ -163,9 +193,9 @@ export default function CustomerReceipts({
         totals: exportTotals,
         groupBy: "none",
         filters: {
-          customer: customer.name || `#${customer.id}`,
-          from: from || null,
-          to: to || null,
+          customer: customer.fullname || customer.name || `#${customer.id}`,
+          from: from ? toISODate(from) : null,
+          to: to ? toISODate(to) : null,
         },
       });
     } catch (err) {
@@ -179,8 +209,9 @@ export default function CustomerReceipts({
 
   return (
     <div
-      className={`rounded-2xl border border-gray-200 bg-white overflow-hidden ${compact ? "" : "shadow-sm"
-        }`}
+      className={`rounded-2xl border border-gray-200 bg-white overflow-hidden ${
+        compact ? "" : "shadow-sm"
+      }`}
     >
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3.5 border-b border-gray-200 bg-gradient-to-l from-gray-50 to-white">
@@ -219,12 +250,12 @@ export default function CustomerReceipts({
             {downloading ? (
               <>
                 <FaSpinner className="animate-spin text-xs" />
-                <span className="">در حال آماده‌سازی…</span>
+                <span>در حال آماده‌سازی…</span>
               </>
             ) : (
               <>
                 <FaDownload className="text-xs" />
-                <span className="">دانلود PDF</span>
+                <span>دانلود PDF</span>
               </>
             )}
           </button>
@@ -232,10 +263,11 @@ export default function CustomerReceipts({
           <button
             onClick={() => setShowFilters((v) => !v)}
             className={`inline-flex items-center justify-center h-10 w-10 rounded-xl border transition-all duration-150 shadow-sm
-                  ${showFilters
-                ? "bg-primary/10 border-primary/30 text-primary"
-                : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50 active:scale-[0.98]"
-              }`}
+                  ${
+                    showFilters
+                      ? "bg-primary/10 border-primary/30 text-primary"
+                      : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50 active:scale-[0.98]"
+                  }`}
             title="فیلتر تاریخ"
             aria-pressed={showFilters}
           >
@@ -244,25 +276,37 @@ export default function CustomerReceipts({
         </div>
       </div>
 
-      {/* Filter bar */}
+      {/* ✅ Shamsi Filter bar */}
       {showFilters && (
         <div className="px-4 py-3 border-b border-gray-100 bg-white flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
-            <label className="text-xs text-gray-600">از</label>
-            <input
-              type="date"
+            <label className="text-xs text-gray-600">از تاریخ</label>
+            <DatePicker
               value={from}
-              onChange={(e) => setFrom(e.target.value)}
-              className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs bg-white focus:ring-2 focus:ring-primary focus:border-primary"
+              onChange={(d) => setFrom(d?.toDate?.() || null)}
+              calendar={persian}
+              locale={persian_fa}
+              calendarPosition="bottom-right"
+              maxDate={to ? to : undefined}
+              format="YYYY/MM/DD"
+              editable={false}
+              inputClass="border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs bg-white focus:ring-2 focus:ring-primary focus:border-primary outline-none w-28 text-center"
+              placeholder="1405/07/01"
             />
           </div>
           <div className="flex items-center gap-2">
-            <label className="text-xs text-gray-600">تا</label>
-            <input
-              type="date"
+            <label className="text-xs text-gray-600">تا تاریخ</label>
+            <DatePicker
               value={to}
-              onChange={(e) => setTo(e.target.value)}
-              className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs bg-white focus:ring-2 focus:ring-primary focus:border-primary"
+              onChange={(d) => setTo(d?.toDate?.() || null)}
+              calendar={persian}
+              locale={persian_fa}
+              calendarPosition="bottom-right"
+              minDate={from ? from : undefined}
+              format="YYYY/MM/DD"
+              editable={false}
+              inputClass="border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs bg-white focus:ring-2 focus:ring-primary focus:border-primary outline-none w-28 text-center"
+              placeholder="1405/07/14"
             />
           </div>
           {(from || to) && (
@@ -349,6 +393,7 @@ export default function CustomerReceipts({
                       <span className="text-gray-400">—</span>
                     )}
                   </td>
+                  {/* ✅ Shamsi date-time */}
                   <td className="px-3 py-3 text-xs text-gray-500 whitespace-nowrap">
                     {formatDateTime(r.createdAt)}
                   </td>
@@ -373,13 +418,13 @@ export default function CustomerReceipts({
         </div>
       )}
 
-        <div className="border-t border-gray-200">
-          <Pagination
-            currentPage={page}
-            totalPages={totalPages}
-            onPageChange={(p) => fetchReceipts(p)}
-          />
-        </div>
+      <div className="border-t border-gray-200">
+        <Pagination
+          currentPage={page}
+          totalPages={totalPages}
+          onPageChange={(p) => fetchReceipts(p)}
+        />
+      </div>
 
       {/* Print modal */}
       <PrintBill

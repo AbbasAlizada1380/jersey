@@ -2,10 +2,19 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import axios from "axios";
 import {
-  FaArrowDown, FaMoneyBillWave, FaHandHoldingHeart,
-  FaChevronDown, FaChevronRight, FaUserTie,
+  FaArrowDown,
+  FaMoneyBillWave,
+  FaHandHoldingHeart,
+  FaChevronDown,
+  FaChevronRight,
+  FaUserTie,
 } from "react-icons/fa";
-import { formatCurrency, formatNumber, formatDate, formatDayLabel } from "../shared/format";
+import {
+  formatCurrency,
+  formatNumber,
+  formatShamsi,
+  formatDayLabelShamsi,
+} from "../shared/format";
 import { extractArray, num } from "../shared/extract";
 import { SummaryCard, LoadingOverlay, PartHeader } from "../shared/UI.jsx";
 
@@ -19,12 +28,18 @@ const DayGroup = ({ day, expanded, onToggle }) => (
       className="w-full px-4 py-2.5 bg-pink-50/70 hover:bg-pink-100/70 transition flex items-center justify-between"
     >
       <div className="flex items-center gap-2">
-        {expanded
-          ? <FaChevronDown className="text-pink-500 text-[10px]" />
-          : <FaChevronRight className="text-pink-500 text-[10px]" />}
+        {expanded ? (
+          <FaChevronDown className="text-pink-500 text-[10px]" />
+        ) : (
+          <FaChevronRight className="text-pink-500 text-[10px]" />
+        )}
         <div className="text-right">
-          <p className="text-xs font-bold text-pink-800">{formatDayLabel(day.date)}</p>
-          <p className="text-[10px] text-pink-600">{formatNumber(day.count)} پرداخت</p>
+          <p className="text-xs font-bold text-pink-800">
+            {formatDayLabelShamsi(day.date)}
+          </p>
+          <p className="text-[10px] text-pink-600">
+            {formatNumber(day.count)} پرداخت
+          </p>
         </div>
       </div>
       <p className="text-sm font-bold text-pink-700 tabular-nums">
@@ -34,7 +49,10 @@ const DayGroup = ({ day, expanded, onToggle }) => (
     {expanded && (
       <div className="divide-y divide-gray-100 bg-white">
         {day.payments.map((p) => (
-          <div key={p.id} className="p-3 pr-8 hover:bg-pink-50/30 border-r-2 border-r-pink-200">
+          <div
+            key={p.id}
+            className="p-3 pr-8 hover:bg-pink-50/30 border-r-2 border-r-pink-200"
+          >
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-gray-800 text-sm truncate flex items-center gap-1.5">
@@ -84,9 +102,12 @@ const ExpensesSalariesPart = ({ from, to, onLoaded }) => {
 
     const fetchPaidDaily = async () => {
       try {
-        const res = await axios.get(`${BASE_URL}/salary-lists/reports/paid/daily`, {
-          params: { from, to, page_size: 10000 },
-        });
+        const res = await axios.get(
+          `${BASE_URL}/salary-lists/reports/paid/daily`,
+          {
+            params: { from, to, page_size: 10000 },
+          }
+        );
         const data = res.data || {};
         return {
           days: Array.isArray(data.days) ? data.days : [],
@@ -113,7 +134,9 @@ const ExpensesSalariesPart = ({ from, to, onLoaded }) => {
     }
   }, [from, to]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   /* ---------- Totals ---------- */
   const totals = useMemo(() => {
@@ -133,23 +156,24 @@ const ExpensesSalariesPart = ({ from, to, onLoaded }) => {
     };
   }, [expenses, paidSalaries, paidDaily]);
 
-useEffect(() => {
-  onLoaded?.({
-    summary: {
-      totalExpenses: totals.totalExpenses,
-      totalPaidSalaries: totals.totalPaidSalaries,
-      grandTotal: totals.grandTotal,
-      expenseCount: totals.expenseCount,
-      paidSalaryCount: totals.paidSalaryCount,
-      paidSalaryDayCount: totals.paidSalaryDayCount,
-    },
-    raw: {
-      expenses,          // full list
-      paidSalaries,      // flat list of PaidSalary rows
-      paidDaily,         // daily grouped (optional, useful for PDF grouping)
-    },
-  });
-}, [totals, expenses, paidSalaries, paidDaily, onLoaded]);
+  useEffect(() => {
+    onLoaded?.({
+      summary: {
+        totalExpenses: totals.totalExpenses,
+        totalPaidSalaries: totals.totalPaidSalaries,
+        grandTotal: totals.grandTotal,
+        expenseCount: totals.expenseCount,
+        paidSalaryCount: totals.paidSalaryCount,
+        paidSalaryDayCount: totals.paidSalaryDayCount,
+      },
+      raw: {
+        expenses,
+        paidSalaries,
+        paidDaily,
+      },
+    });
+  }, [totals, expenses, paidSalaries, paidDaily, onLoaded]);
+
   const toggleDay = (date) =>
     setExpandedDays((p) => ({ ...p, [date]: !p[date] }));
 
@@ -161,7 +185,9 @@ useEffect(() => {
           <FaArrowDown className="text-red-600 text-lg" />
         </div>
         <div>
-          <h2 className="text-lg font-bold text-gray-800">۲. مصارف و معاشات پرداخت‌شده</h2>
+          <h2 className="text-lg font-bold text-gray-800">
+            ۲. مصارف و معاشات پرداخت‌شده
+          </h2>
           <p className="text-xs text-gray-500">
             مصارف عمومی + معاشات پرداخت‌شده (پول خارج شده)
           </p>
@@ -235,7 +261,7 @@ useEffect(() => {
                         {e.category || e.receiver || e.type || "—"}
                       </p>
                       <p className="text-[10px] text-gray-400 mt-1">
-                        {formatDate(e.createdAt || e.date || e.payment_date)}
+                        {formatShamsi(e.createdAt || e.date || e.payment_date)}
                       </p>
                     </div>
                     <p className="font-bold text-red-700 text-sm whitespace-nowrap">

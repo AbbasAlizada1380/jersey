@@ -1,10 +1,19 @@
+// src/components/expenses/ExpenseManager.jsx
 import { useEffect, useState } from "react";
 import axios from "axios";
-import ExpenseTable from "./ExpenseTable";
 import { useSelector } from "react-redux";
+import {
+  FaPlus,
+  FaEdit,
+  FaTrash,
+  FaSpinner,
+  FaCheckCircle,
+  FaTimes,
+} from "react-icons/fa";
+import ExpenseTable from "./ExpenseTable";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
-const limit = 10;
+const LIMIT = 10;
 
 const ExpenseManager = () => {
   const [expenses, setExpenses] = useState([]);
@@ -13,7 +22,11 @@ const ExpenseManager = () => {
   const [submitting, setSubmitting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
   const [editingId, setEditingId] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
+  const [error, setError] = useState(null);
+
   const [form, setForm] = useState({
     purpose: "",
     by: "",
@@ -23,18 +36,23 @@ const ExpenseManager = () => {
 
   /* ======================
      Fetch Expenses
-  ====================== */
+     ====================== */
   const fetchExpenses = async (page = 1) => {
     try {
       setLoading(true);
-      const res = await axios.get(
-        `${BASE_URL}/expense?page=${page}&limit=${limit}`
-      );
-      setExpenses(res.data.expenses);
-      setCurrentPage(res.data.pagination.currentPage);
-      setTotalPages(res.data.pagination.totalPages);
+      setError(null);
+      const res = await axios.get(`${BASE_URL}/expense`, {
+        params: { page, limit: LIMIT },
+      });
+      setExpenses(res.data.expenses || []);
+      setCurrentPage(res.data.pagination?.currentPage || page);
+      setTotalPages(res.data.pagination?.totalPages || 1);
+      setTotalItems(res.data.pagination?.totalItems || 0);
     } catch (err) {
       console.error(err);
+      setError(
+        err?.response?.data?.message || err.message || "خطا در دریافت هزینه‌ها"
+      );
     } finally {
       setLoading(false);
     }
@@ -42,14 +60,19 @@ const ExpenseManager = () => {
 
   useEffect(() => {
     fetchExpenses(currentPage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage]);
 
+  /* ======================
+     Submit (Add / Edit)
+     ====================== */
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (submitting) return;
 
     try {
       setSubmitting(true);
+      setError(null);
 
       if (editingId) {
         await axios.put(`${BASE_URL}/expense/${editingId}`, form);
@@ -57,47 +80,58 @@ const ExpenseManager = () => {
         await axios.post(`${BASE_URL}/expense`, form);
       }
 
+      setSuccessMessage(
+        editingId ? "تغییرات ذخیره شد" : "هزینه جدید ثبت شد"
+      );
+      setTimeout(() => setSuccessMessage(null), 3000);
+
       resetForm();
       fetchExpenses(currentPage);
     } catch (err) {
       console.error(err);
-      alert(err.response?.data?.message || "Error saving expense");
+      setError(
+        err?.response?.data?.message || err.message || "خطا در ذخیره هزینه"
+      );
     } finally {
       setSubmitting(false);
     }
   };
 
   /* ======================
-     Edit Expense
-  ====================== */
+     Edit
+     ====================== */
   const handleEdit = (expense) => {
     setEditingId(expense.id);
     setForm({
-      purpose: expense.purpose,
-      by: expense.by,
-      amount: expense.amount,
-      description: expense.description,
+      purpose: expense.purpose || "",
+      by: expense.by || "",
+      amount: expense.amount || "",
+      description: expense.description || "",
     });
   };
 
   /* ======================
-     Delete Expense
-  ====================== */
+     Delete
+     ====================== */
   const handleDelete = async (id) => {
-    if (!window.confirm("آیا مطمئن هستید؟")) return;
+    if (!window.confirm("آیا از حذف این هزینه مطمئن هستید؟")) return;
 
     try {
       await axios.delete(`${BASE_URL}/expense/${id}`);
+      setSuccessMessage("هزینه حذف شد");
+      setTimeout(() => setSuccessMessage(null), 2500);
       fetchExpenses(currentPage);
     } catch (err) {
       console.error(err);
-      alert(err.response?.data?.message || "Error deleting expense");
+      setError(
+        err?.response?.data?.message || err.message || "خطا در حذف هزینه"
+      );
     }
   };
 
   /* ======================
-     Reset Form
-  ====================== */
+     Reset
+     ====================== */
   const resetForm = () => {
     setForm({ purpose: "", by: "", amount: "", description: "" });
     setEditingId(null);
@@ -105,6 +139,26 @@ const ExpenseManager = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 p-6 space-y-8">
+      {/* Success toast */}
+      {successMessage && (
+        <div className="fixed top-4 right-4 left-4 md:left-auto md:w-96 z-50">
+          <div className="bg-green-50 border border-green-200 rounded-xl p-4 shadow-lg">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <FaCheckCircle className="text-green-600" />
+              </div>
+              <p className="flex-1 text-green-700">{successMessage}</p>
+              <button
+                onClick={() => setSuccessMessage(null)}
+                className="p-1 hover:bg-green-100 rounded-lg transition"
+              >
+                <FaTimes className="text-green-600 text-sm" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="text-center mb-6">
         <h1 className="text-3xl font-bold text-gray-800 mb-2">
@@ -115,14 +169,7 @@ const ExpenseManager = () => {
         {editingId && (
           <div className="mt-4 p-4 bg-yellow-100 border border-yellow-400 rounded-xl max-w-md mx-auto">
             <div className="flex items-center justify-center gap-2 text-yellow-800">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-              >
-                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-              </svg>
+              <FaEdit />
               <span className="font-semibold">
                 حالت ویرایش – هزینه #{editingId}
               </span>
@@ -131,43 +178,37 @@ const ExpenseManager = () => {
         )}
       </div>
 
-      {/* Form Section */}
-      <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
-        {/* Form Header */}
+      {/* Error */}
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 max-w-3xl mx-auto">
+          {error}
+        </div>
+      )}
+
+      {/* Form */}
+      <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden mx-auto">
         <div className="bg-gradient-to-r from-primary to-primary/80 text-white p-4">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-white/20 rounded-full">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
+              <FaPlus />
             </div>
             <div>
               <h2 className="text-xl font-bold">
                 {editingId ? "ویرایش هزینه" : "افزودن هزینه جدید"}
               </h2>
               <p className="text-sm text-white/80">
-                {editingId ? "ویرایش اطلاعات هزینه" : "ثبت اطلاعات هزینه جدید"}
+                {editingId
+                  ? "ویرایش اطلاعات هزینه"
+                  : "ثبت اطلاعات هزینه جدید"}
               </p>
             </div>
           </div>
         </div>
 
-        {/* Form Content */}
         <div className="p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Purpose Field */}
+              {/* Purpose */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <span className="text-red-500">*</span> هدف هزینه
@@ -175,12 +216,9 @@ const ExpenseManager = () => {
                 <select
                   required
                   value={form.purpose}
-                  onChange={(e) => {
-                    setForm({ ...form, purpose: e.target.value });
-                    if (e.target.value !== "سایر") {
-                      setForm((prev) => ({ ...prev, customPurpose: "" }));
-                    }
-                  }}
+                  onChange={(e) =>
+                    setForm({ ...form, purpose: e.target.value })
+                  }
                   className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-primary transition bg-white"
                 >
                   <option value="">انتخاب کنید...</option>
@@ -191,7 +229,7 @@ const ExpenseManager = () => {
                 </select>
               </div>
 
-              {/* By Field */}
+              {/* By */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <span className="text-red-500">*</span> پرداخت کننده
@@ -206,7 +244,7 @@ const ExpenseManager = () => {
               </div>
             </div>
 
-            {/* Amount Field */}
+            {/* Amount */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 <span className="text-red-500">*</span> مبلغ (افغانی)
@@ -231,7 +269,7 @@ const ExpenseManager = () => {
               </div>
             </div>
 
-            {/* Description Field */}
+            {/* Description */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 توضیحات
@@ -247,83 +285,50 @@ const ExpenseManager = () => {
               />
             </div>
 
-            {/* Action Buttons */}
+            {/* Buttons */}
             <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
               {editingId && (
                 <button
                   type="button"
                   onClick={resetForm}
-                  className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
+                  className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium flex items-center gap-2"
                 >
-                  لغو ویرایش
+                  <FaTimes /> لغو ویرایش
                 </button>
               )}
               <button
                 type="submit"
                 disabled={submitting}
-                className={`px-6 py-3 rounded-lg font-medium shadow-md transition
-                  ${
-                    submitting
-                      ? "bg-gray-400 cursor-not-allowed"
-                      : "bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary text-white"
-                  }`}
+                className={`px-6 py-3 rounded-lg font-medium shadow-md transition flex items-center gap-2 ${
+                  submitting
+                    ? "bg-gray-400 cursor-not-allowed text-white"
+                    : "bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary text-white"
+                }`}
               >
-                <div className="flex items-center gap-2">
-                  {submitting ? (
-                    <>
-                      <svg
-                        className="animate-spin h-5 w-5 text-white"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                          fill="none"
-                        />
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-                        />
-                      </svg>
-                      <span>در حال ذخیره...</span>
-                    </>
-                  ) : (
-                    <>
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-5 w-5"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                      <span>
-                        {editingId ? "ذخیره تغییرات" : "ثبت هزینه"}
-                      </span>
-                    </>
-                  )}
-                </div>
+                {submitting ? (
+                  <>
+                    <FaSpinner className="animate-spin" />
+                    در حال ذخیره...
+                  </>
+                ) : (
+                  <>
+                    <FaCheckCircle />
+                    {editingId ? "ذخیره تغییرات" : "ثبت هزینه"}
+                  </>
+                )}
               </button>
             </div>
           </form>
         </div>
       </div>
 
-      {/* Expense Table */}
+      {/* Table */}
       <ExpenseTable
         expenses={expenses}
         loading={loading}
         currentPage={currentPage}
         totalPages={totalPages}
+        totalItems={totalItems}
         onPageChange={setCurrentPage}
         onEdit={handleEdit}
         onDelete={handleDelete}

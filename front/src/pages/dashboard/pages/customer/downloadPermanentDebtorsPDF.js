@@ -4,15 +4,34 @@ import autoTable from "jspdf-autotable";
 import moment from "moment-jalaali";
 import VazirmatnTTF from "../../../../../public/ttf/Vazirmatn";
 
-moment.locale("en");
+moment.loadPersian({ usePersianDigits: false, dialect: "persian-modern" });
 
 const fmt = (n) =>
   new Intl.NumberFormat("en-US").format(Number(n || 0));
 
+/* ✅ Shamsi formatter */
+const shamsi = (d) => {
+  if (!d) return "—";
+  try {
+    return moment(d).format("jYYYY/jMM/jDD");
+  } catch {
+    return "—";
+  }
+};
+
+/* ✅ Shamsi filename-safe string */
+const shamsiFileSafe = (d) => {
+  try {
+    return moment(d).format("jYYYY-jMM-jDD");
+  } catch {
+    return "date";
+  }
+};
+
 export function downloadPermanentDebtorsPDF({
   permanent = [],
-  temporary,        // ignored — kept only for API compatibility
-  grandTotals,      // ignored — we recompute from `permanent`
+  temporary, // ignored — kept only for API compatibility
+  grandTotals, // ignored — we recompute from `permanent`
   filters = {},
 }) {
   const doc = new jsPDF({ orientation: "p", unit: "pt", format: "a4" });
@@ -20,25 +39,31 @@ export function downloadPermanentDebtorsPDF({
 
   doc.addFileToVFS("Vazirmatn.ttf", VazirmatnTTF);
   doc.addFont("Vazirmatn.ttf", "Vazirmatn", "normal");
-  doc.setFont("Vazirmatn");
+  doc.setFont("Vazirmatn", "normal");
 
   const pageWidth = doc.internal.pageSize.getWidth();
-  const today = moment().format("YYYY/MM/DD");
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  /* ✅ Shamsi dates */
+  const todayShamsi = moment().format("jYYYY/jMM/jDD");
+  const todayFileSafe = moment().format("jYYYY-jMM-jDD");
 
   /* ---------- Title ---------- */
   doc.setFontSize(15);
+  doc.setFont("Vazirmatn", "normal");
   doc.text("گزارش بدهی مشتریان دائمی", pageWidth - 40, 55, {
     align: "right",
   });
 
   /* ---------- Subtitle ---------- */
   const parts = [];
-  if (filters.from) parts.push(`از: ${filters.from}`);
-  if (filters.to) parts.push(`تا: ${filters.to}`);
-  parts.push(`تاریخ صدور: ${today}`);
+  if (filters.from) parts.push(`از: ${shamsi(filters.from)}`);
+  if (filters.to) parts.push(`تا: ${shamsi(filters.to)}`);
+  parts.push(`تاریخ صدور: ${todayShamsi}`);
 
   doc.setFontSize(10);
   doc.setTextColor(80, 80, 80);
+  doc.setFont("Vazirmatn", "normal");
   doc.text(parts.join("  •  "), pageWidth - 40, 75, { align: "right" });
 
   doc.setDrawColor(30, 64, 175);
@@ -46,16 +71,20 @@ export function downloadPermanentDebtorsPDF({
   doc.line(40, 85, pageWidth - 40, 85);
   doc.setTextColor(0, 0, 0);
 
-  /* ---------- Table renderer ---------- */
+  /* =========================================================
+     Table renderer
+     ========================================================= */
   const renderTable = (title, rows, startY) => {
     doc.setFontSize(12);
     doc.setTextColor(30, 64, 175);
+    doc.setFont("Vazirmatn", "normal");
     doc.text(title, pageWidth - 40, startY, { align: "right" });
     doc.setTextColor(0, 0, 0);
 
     if (!rows || rows.length === 0) {
       doc.setFontSize(10);
       doc.setTextColor(120, 120, 120);
+      doc.setFont("Vazirmatn", "normal");
       doc.text("هیچ بدهی ثبت نشده است", pageWidth - 40, startY + 20, {
         align: "right",
       });
@@ -63,30 +92,28 @@ export function downloadPermanentDebtorsPDF({
       return startY + 40;
     }
 
-    /* ✅ Single source of truth for column order — logical order */
-    const COLUMNS = [
-      "باقی مانده",
-      "پرداخت شده",
-      "مجموع",
-      "تعداد بل",
-      "تماس",
-      "مشتری",
+    /* ✅ Columns in the SAME order across head, body, and foot.
+          No .reverse() — autoTable draws them left-to-right as declared,
+          giving us Persian RTL visual order automatically. */
+    const head = [
+      [
+        { content: "باقی مانده", styles: { font: "Vazirmatn" } },
+        { content: "پرداخت شده", styles: { font: "Vazirmatn" } },
+        { content: "مجموع", styles: { font: "Vazirmatn" } },
+        { content: "تعداد بل", styles: { font: "Vazirmatn" } },
+        { content: "تماس", styles: { font: "Vazirmatn" } },
+        { content: "مشتری", styles: { font: "Vazirmatn" } },
+      ],
     ];
 
-    /* ✅ head — with .reverse() to match RTL visual order */
-    const head = [COLUMNS.slice().reverse()];
-
-    /* ✅ body — same logical order, then reversed */
-    const body = rows.map((r) =>
-      [
-        fmt(r.totalRemaining),
-        fmt(r.totalPaid),
-        fmt(r.totalAmount),
-        String(r.bills.length),
-        r.phoneNumber || "—",
-        r.name,
-      ].reverse()
-    );
+    const body = rows.map((r) => [
+      fmt(r.totalRemaining),
+      fmt(r.totalPaid),
+      fmt(r.totalAmount),
+      String(r.bills.length),
+      r.phoneNumber || "—",
+      r.name,
+    ]);
 
     /* ---------- Totals row ---------- */
     const t = rows.reduce(
@@ -100,15 +127,15 @@ export function downloadPermanentDebtorsPDF({
       { amount: 0, paid: 0, remaining: 0, bills: 0 }
     );
 
-    /* ✅ foot — MUST also be reversed to match head/body order */
+    /* ✅ Foot — same column order as head/body */
     const foot = [
       [
-        { content: "مجموع", styles: { font: "Vazirmatn", fontStyle: "normal" } },
-        "",
-        String(t.bills),
-        fmt(t.amount),
-        fmt(t.paid),
         fmt(t.remaining),
+        fmt(t.paid),
+        fmt(t.amount),
+        String(t.bills),
+        "",
+        { content: "مجموع", styles: { font: "Vazirmatn" } },
       ],
     ];
 
@@ -136,11 +163,15 @@ export function downloadPermanentDebtorsPDF({
         font: "Vazirmatn",
         fillColor: [240, 240, 240],
         textColor: [30, 30, 30],
-        fontStyle: "bold",
         halign: "center",
       },
-      didDrawCell: (data) => {
-        if (data.cell) data.cell.styles.font = "Vazirmatn";
+      /* ✅ Force Vazirmatn at parse time */
+      didParseCell: (data) => {
+        data.cell.styles.font = "Vazirmatn";
+      },
+      /* ✅ Force Vazirmatn at draw time — THIS fixes the garbled "مجموع" */
+      willDrawCell: () => {
+        doc.setFont("Vazirmatn", "normal");
       },
     });
 
@@ -151,7 +182,7 @@ export function downloadPermanentDebtorsPDF({
   let y = renderTable("مشتریان دائمی بدهکار", permanent, 110);
 
   /* ---------- Grand totals ---------- */
-  if (y > doc.internal.pageSize.getHeight() - 120) {
+  if (y > pageHeight - 120) {
     doc.addPage();
     y = 60;
   }
@@ -174,10 +205,12 @@ export function downloadPermanentDebtorsPDF({
 
   doc.setFontSize(12);
   doc.setTextColor(30, 64, 175);
+  doc.setFont("Vazirmatn", "normal");
   doc.text("خلاصه کلی", pageWidth - 50, y + 20, { align: "right" });
   doc.setTextColor(0, 0, 0);
 
   doc.setFontSize(10);
+  doc.setFont("Vazirmatn", "normal");
   doc.text(
     `تعداد مشتریان بدهکار: ${totals.customers}`,
     pageWidth - 50,
@@ -199,6 +232,6 @@ export function downloadPermanentDebtorsPDF({
     { align: "right" }
   );
 
-  /* ---------- Save ---------- */
-  doc.save(`Permanent_Customer_Debt_${today}.pdf`);
+  /* ---------- Save with Shamsi filename ---------- */
+  doc.save(`Permanent_Customer_Debt_${todayFileSafe}.pdf`);
 }

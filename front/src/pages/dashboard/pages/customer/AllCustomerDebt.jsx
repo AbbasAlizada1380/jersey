@@ -1,5 +1,10 @@
+// src/components/.../AllCustomerDebt.jsx
 import { useEffect, useState, useCallback } from "react";
 import axios from "axios";
+import moment from "moment-jalaali";
+import DatePicker from "react-multi-date-picker";
+import persian from "react-date-object/calendars/persian";
+import persian_fa from "react-date-object/locales/persian_fa";
 import {
   FaUsers,
   FaUserClock,
@@ -9,11 +14,13 @@ import {
   FaTimes,
   FaExclamationTriangle,
   FaCheckCircle,
-  FaEye,
 } from "react-icons/fa";
 import { downloadAllCustomerDebtPDF } from "./downloadAllCustomerDebtPDF";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
+
+/* ✅ Load Persian locale once */
+moment.loadPersian({ usePersianDigits: false, dialect: "persian-modern" });
 
 /* ---------- helpers ---------- */
 const formatCurrency = (amount) => {
@@ -21,9 +28,26 @@ const formatCurrency = (amount) => {
   return new Intl.NumberFormat("en-US").format(Number(amount)) + " افغانی";
 };
 
+/* ✅ Hijri Shamsi date formatter */
 const formatDate = (d) => {
   if (!d) return "—";
-  return new Intl.DateTimeFormat("en-GB").format(new Date(d));
+  try {
+    return moment(d).format("jYYYY/jMM/jDD");
+  } catch {
+    return "—";
+  }
+};
+
+/* ✅ Convert JS Date or ISO string → "YYYY-MM-DD" (for API params) */
+const toISODate = (d) => {
+  if (!d) return "";
+  try {
+    const m = moment(d);
+    if (!m.isValid()) return "";
+    return m.format("YYYY-MM-DD");
+  } catch {
+    return "";
+  }
 };
 
 const statusBadge = (status) => {
@@ -41,7 +65,7 @@ const statusBadge = (status) => {
   );
 };
 
-/* ---------- group bills into "customer" entries ---------- */
+/* ---------- group permanent bills by customer ---------- */
 function groupPermanentBills(bills) {
   const map = new Map();
   for (const b of bills) {
@@ -77,6 +101,7 @@ function groupPermanentBills(bills) {
   return Array.from(map.values());
 }
 
+/* ---------- group temporary bills by name|phone ---------- */
 function groupTemporaryBills(bills) {
   const map = new Map();
   for (const b of bills) {
@@ -112,9 +137,9 @@ function groupTemporaryBills(bills) {
 }
 
 /* =========================================================
-   One debt table (reusable for permanent or temporary)
+   One debt table
    ========================================================= */
-function DebtTable({ title, icon, rows, accent, onViewBills }) {
+function DebtTable({ title, icon, rows, accent }) {
   const totals = rows.reduce(
     (acc, r) => {
       acc.amount += r.totalAmount;
@@ -157,83 +182,80 @@ function DebtTable({ title, icon, rows, accent, onViewBills }) {
           <p className="text-gray-500 text-sm">هیچ بدهی ثبت نشده است</p>
         </div>
       ) : (
-        <>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-3 py-2 text-right text-xs font-semibold text-gray-600 uppercase">
-                    مشتری
-                  </th>
-                  <th className="px-3 py-2 text-right text-xs font-semibold text-gray-600 uppercase">
-                    شماره تماس
-                  </th>
-                  <th className="px-3 py-2 text-right text-xs font-semibold text-gray-600 uppercase">
-                    تعداد بل
-                  </th>
-                  <th className="px-3 py-2 text-right text-xs font-semibold text-gray-600 uppercase">
-                    مجموع
-                  </th>
-                  <th className="px-3 py-2 text-right text-xs font-semibold text-gray-600 uppercase">
-                    پرداخت شده
-                  </th>
-                  <th className="px-3 py-2 text-right text-xs font-semibold text-gray-600 uppercase">
-                    باقی مانده
-                  </th>
-                  <th className="px-3 py-2 text-right text-xs font-semibold text-gray-600 uppercase">
-                    وضعیت
-                  </th>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-3 py-2 text-right text-xs font-semibold text-gray-600 uppercase">
+                  مشتری
+                </th>
+                <th className="px-3 py-2 text-right text-xs font-semibold text-gray-600 uppercase">
+                  شماره تماس
+                </th>
+                <th className="px-3 py-2 text-right text-xs font-semibold text-gray-600 uppercase">
+                  تعداد بل
+                </th>
+                <th className="px-3 py-2 text-right text-xs font-semibold text-gray-600 uppercase">
+                  مجموع
+                </th>
+                <th className="px-3 py-2 text-right text-xs font-semibold text-gray-600 uppercase">
+                  پرداخت شده
+                </th>
+                <th className="px-3 py-2 text-right text-xs font-semibold text-gray-600 uppercase">
+                  باقی مانده
+                </th>
+                <th className="px-3 py-2 text-right text-xs font-semibold text-gray-600 uppercase">
+                  وضعیت
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-100">
+              {rows.map((r) => (
+                <tr key={r.key} className="hover:bg-primary/5 transition">
+                  <td className="px-3 py-3">
+                    <div className="text-sm font-medium text-gray-900">
+                      {r.name}
+                    </div>
+                    <div className="text-[11px] text-gray-500">
+                      آخرین بل: {formatDate(r.latestAt)}
+                    </div>
+                  </td>
+                  <td className="px-3 py-3 text-sm text-gray-700" dir="ltr">
+                    {r.phoneNumber || "—"}
+                  </td>
+                  <td className="px-3 py-3 text-sm text-gray-700">
+                    {r.bills.length}
+                  </td>
+                  <td className="px-3 py-3 text-sm text-gray-800">
+                    {formatCurrency(r.totalAmount)}
+                  </td>
+                  <td className="px-3 py-3 text-sm text-emerald-700 font-medium">
+                    {formatCurrency(r.totalPaid)}
+                  </td>
+                  <td className="px-3 py-3 text-sm font-semibold text-red-600">
+                    {formatCurrency(r.totalRemaining)}
+                  </td>
+                  <td className="px-3 py-3">
+                    <div className="flex flex-wrap gap-1">
+                      {r.unpaidCount > 0 && statusBadge("unpaid")}
+                      {r.partialCount > 0 && statusBadge("partial")}
+                      {r.unpaidCount > 0 && (
+                        <span className="text-[10px] text-gray-500 ml-1">
+                          ×{r.unpaidCount}
+                        </span>
+                      )}
+                      {r.partialCount > 0 && (
+                        <span className="text-[10px] text-gray-500 ml-1">
+                          ×{r.partialCount}
+                        </span>
+                      )}
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-100">
-                {rows.map((r) => (
-                  <tr key={r.key} className="hover:bg-primary/5 transition">
-                    <td className="px-3 py-3">
-                      <div className="text-sm font-medium text-gray-900">
-                        {r.name}
-                      </div>
-                      <div className="text-[11px] text-gray-500">
-                        آخرین بل: {formatDate(r.latestAt)}
-                      </div>
-                    </td>
-                    <td className="px-3 py-3 text-sm text-gray-700" dir="ltr">
-                      {r.phoneNumber || "—"}
-                    </td>
-                    <td className="px-3 py-3 text-sm text-gray-700">
-                      {r.bills.length}
-                    </td>
-                    <td className="px-3 py-3 text-sm text-gray-800">
-                      {formatCurrency(r.totalAmount)}
-                    </td>
-                    <td className="px-3 py-3 text-sm text-emerald-700 font-medium">
-                      {formatCurrency(r.totalPaid)}
-                    </td>
-                    <td className="px-3 py-3 text-sm font-semibold text-red-600">
-                      {formatCurrency(r.totalRemaining)}
-                    </td>
-                    <td className="px-3 py-3">
-                      <div className="flex flex-wrap gap-1">
-                        {r.unpaidCount > 0 && statusBadge("unpaid")}
-                        {r.partialCount > 0 && statusBadge("partial")}
-                        {r.unpaidCount > 0 && (
-                          <span className="text-[10px] text-gray-500 ml-1">
-                            ×{r.unpaidCount}
-                          </span>
-                        )}
-                        {r.partialCount > 0 && (
-                          <span className="text-[10px] text-gray-500 ml-1">
-                            ×{r.partialCount}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-        </>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
@@ -242,16 +264,16 @@ function DebtTable({ title, icon, rows, accent, onViewBills }) {
 /* =========================================================
    Main component
    ========================================================= */
-export default function AllCustomerDebt({ refreshKey = 0, onViewBills }) {
+export default function AllCustomerDebt({ refreshKey = 0 }) {
   const [permanent, setPermanent] = useState([]);
   const [temporary, setTemporary] = useState([]);
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState(null);
 
-  /* filter */
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  /* ✅ Filter state — holds JS Date objects (DateObject → .toDate()) */
+  const [from, setFrom] = useState(null);
+  const [to, setTo] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
 
   /* ---------- Fetch both sets ---------- */
@@ -261,8 +283,8 @@ export default function AllCustomerDebt({ refreshKey = 0, onViewBills }) {
       setError(null);
 
       const baseParams = { page: 1, limit: 10000, status: "unpaid,partial" };
-      if (from) baseParams.from = from;
-      if (to) baseParams.to = to;
+      if (from) baseParams.from = toISODate(from);
+      if (to) baseParams.to = toISODate(to);
 
       const [permRes, tempRes] = await Promise.all([
         axios.get(`${BASE_URL}/bills`, {
@@ -281,8 +303,8 @@ export default function AllCustomerDebt({ refreshKey = 0, onViewBills }) {
     } catch (err) {
       setError(
         err?.response?.data?.message ||
-        err.message ||
-        "خطا در دریافت بدهی مشتریان"
+          err.message ||
+          "خطا در دریافت بدهی مشتریان"
       );
       setPermanent([]);
       setTemporary([]);
@@ -296,7 +318,7 @@ export default function AllCustomerDebt({ refreshKey = 0, onViewBills }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [from, to, refreshKey]);
 
-  /* ---------- Derived grand totals ---------- */
+  /* ---------- Grand totals ---------- */
   const grandTotals = [...permanent, ...temporary].reduce(
     (acc, r) => {
       acc.amount += r.totalAmount;
@@ -322,8 +344,8 @@ export default function AllCustomerDebt({ refreshKey = 0, onViewBills }) {
         temporary,
         grandTotals,
         filters: {
-          from: from || null,
-          to: to || null,
+          from: from ? toISODate(from) : null,
+          to: to ? toISODate(to) : null,
         },
       });
     } catch (err) {
@@ -354,10 +376,11 @@ export default function AllCustomerDebt({ refreshKey = 0, onViewBills }) {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowFilters((v) => !v)}
-            className={`px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition ${showFilters
-              ? "bg-primary text-white"
-              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
+            className={`px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition ${
+              showFilters
+                ? "bg-primary text-white"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            }`}
           >
             <FaFilter className="text-xs" />
             فیلتر تاریخ
@@ -369,11 +392,12 @@ export default function AllCustomerDebt({ refreshKey = 0, onViewBills }) {
               downloading ||
               (permanent.length === 0 && temporary.length === 0)
             }
-            className={`px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition ${downloading ||
+            className={`px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition ${
+              downloading ||
               (permanent.length === 0 && temporary.length === 0)
-              ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-              : "bg-gradient-to-r from-primary to-primary/80 hover:opacity-90 text-white"
-              }`}
+                ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                : "bg-gradient-to-r from-primary to-primary/80 hover:opacity-90 text-white"
+            }`}
           >
             {downloading ? (
               <>
@@ -390,32 +414,51 @@ export default function AllCustomerDebt({ refreshKey = 0, onViewBills }) {
         </div>
       </div>
 
-      {/* Filter bar */}
+      {/* =========================================================
+          ✅ Shamsi Filter Bar
+          ========================================================= */}
       {showFilters && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-wrap items-center gap-3">
+          {/* از تاریخ */}
           <div className="flex items-center gap-2">
             <label className="text-xs text-gray-600">از تاریخ</label>
-            <input
-              type="date"
+            <DatePicker
               value={from}
-              onChange={(e) => setFrom(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:ring-2 focus:ring-primary focus:border-primary"
+              onChange={(d) => setFrom(d?.toDate?.() || null)}
+              calendar={persian}
+              locale={persian_fa}
+              calendarPosition="bottom-right"
+              maxDate={to ? to : undefined}
+              format="YYYY/MM/DD"
+              editable={false}
+              inputClass="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:ring-2 focus:ring-primary focus:border-primary outline-none w-32 text-center"
+              placeholder="1404/07/01"
             />
           </div>
+
+          {/* تا تاریخ */}
           <div className="flex items-center gap-2">
             <label className="text-xs text-gray-600">تا تاریخ</label>
-            <input
-              type="date"
+            <DatePicker
               value={to}
-              onChange={(e) => setTo(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:ring-2 focus:ring-primary focus:border-primary"
+              onChange={(d) => setTo(d?.toDate?.() || null)}
+              calendar={persian}
+              locale={persian_fa}
+              calendarPosition="bottom-right"
+              minDate={from ? from : undefined}
+              format="YYYY/MM/DD"
+              editable={false}
+              inputClass="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:ring-2 focus:ring-primary focus:border-primary outline-none w-32 text-center"
+              placeholder="1404/07/14"
             />
           </div>
+
+          {/* Clear button */}
           {(from || to) && (
             <button
               onClick={() => {
-                setFrom("");
-                setTo("");
+                setFrom(null);
+                setTo(null);
               }}
               className="px-3 py-1.5 rounded-lg text-xs text-gray-600 hover:bg-gray-100 transition flex items-center gap-1"
             >
@@ -428,7 +471,6 @@ export default function AllCustomerDebt({ refreshKey = 0, onViewBills }) {
 
       {/* Grand summary tiles */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-        {/* 1. Debtor count */}
         <div className="rounded-2xl border border-gray-200 bg-white p-4">
           <p className="text-xs text-gray-500 mb-1">تعداد مشتری بدهکار</p>
           <p className="text-xl font-bold text-gray-900">
@@ -439,7 +481,6 @@ export default function AllCustomerDebt({ refreshKey = 0, onViewBills }) {
           </p>
         </div>
 
-        {/* 2. Permanent debt */}
         <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4">
           <p className="text-xs text-blue-700 mb-1 flex items-center gap-1">
             <FaUsers className="text-[10px]" />
@@ -455,7 +496,6 @@ export default function AllCustomerDebt({ refreshKey = 0, onViewBills }) {
           </p>
         </div>
 
-        {/* 3. Temporary debt */}
         <div className="rounded-2xl border border-yellow-200 bg-yellow-50 p-4">
           <p className="text-xs text-yellow-700 mb-1 flex items-center gap-1">
             <FaUserClock className="text-[10px]" />
@@ -471,7 +511,6 @@ export default function AllCustomerDebt({ refreshKey = 0, onViewBills }) {
           </p>
         </div>
 
-        {/* 4. Total */}
         <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
           <p className="text-xs text-red-600 mb-1 flex items-center gap-1">
             <FaExclamationTriangle className="text-[10px]" />
@@ -501,22 +540,18 @@ export default function AllCustomerDebt({ refreshKey = 0, onViewBills }) {
         </div>
       ) : (
         <>
-          {/* Permanent table */}
           <DebtTable
             title="مشتریان دائمی بدهکار"
             icon={<FaUsers className="h-5 w-5" />}
             rows={permanent}
             accent="from-primary to-primary/80"
-            onViewBills={onViewBills}
           />
 
-          {/* Temporary table */}
           <DebtTable
             title="مشتریان موقت بدهکار"
             icon={<FaUserClock className="h-5 w-5" />}
             rows={temporary}
             accent="from-primary to-primary/80"
-            onViewBills={onViewBills}
           />
         </>
       )}

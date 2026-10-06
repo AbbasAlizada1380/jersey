@@ -1,16 +1,32 @@
 // src/components/financial/FinancialFilters.jsx
 import React from "react";
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
-import { FaCalendarAlt, FaFilter, FaTimes, FaSync, FaSpinner } from "react-icons/fa";
-import { toLocalISODate } from "./shared/format";
+import DatePicker from "react-multi-date-picker";
+import persian from "react-date-object/calendars/persian";
+import persian_fa from "react-date-object/locales/persian_fa";
+import {
+  FaCalendarAlt,
+  FaFilter,
+  FaTimes,
+  FaSync,
+  FaSpinner,
+} from "react-icons/fa";
 
 const FinancialFilters = ({
-  startDate, endDate, setStartDate, setEndDate,
-  onApply, onReset, onRefresh,
-  hasCustomRange, loading, lastUpdated, show, toggleShow,
+  startDate,
+  endDate,
+  setStartDate,
+  setEndDate,
+  onApply,
+  onReset,
+  onRefresh,
+  hasCustomRange,
+  loading,
+  lastUpdated,
+  show,
+  toggleShow,
 }) => (
   <>
+    {/* ============ Top Action Bar ============ */}
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex items-center gap-3">
         <button
@@ -39,41 +55,57 @@ const FinancialFilters = ({
       )}
     </div>
 
+    {/* ============ Filters Panel ============ */}
     {show && (
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+          {/* از تاریخ */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">از تاریخ</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              از تاریخ (هجری شمسی)
+            </label>
             <div className="relative">
               <DatePicker
-                selected={startDate}
-                onChange={(d) => d && setStartDate(d)}
-                selectsStart startDate={startDate} endDate={endDate} maxDate={endDate}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
-                placeholderText="انتخاب تاریخ شروع"
-                dateFormat="yyyy/MM/dd"
+                value={startDate}
+                onChange={(d) => setStartDate(d?.toDate?.() || null)}
+                calendar={persian}
+                locale={persian_fa}
+                calendarPosition="bottom-right"
+                maxDate={endDate ? new Date(endDate) : undefined}
+                inputClass="w-full px-4 py-2.5 pr-10 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm bg-white"
+                containerClassName="w-full"
+                placeholder="انتخاب تاریخ شروع"
+                format="YYYY/MM/DD"
+                editable={false}
               />
               <FaCalendarAlt className="absolute left-3 top-3 text-gray-400 pointer-events-none" />
             </div>
-            <p className="text-[10px] text-gray-400 mt-1">{toLocalISODate(startDate)}</p>
           </div>
 
+          {/* تا تاریخ */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">تا تاریخ</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              تا تاریخ (هجری شمسی)
+            </label>
             <div className="relative">
               <DatePicker
-                selected={endDate}
-                onChange={(d) => d && setEndDate(d)}
-                selectsEnd startDate={startDate} endDate={endDate} minDate={startDate}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
-                placeholderText="انتخاب تاریخ پایان"
-                dateFormat="yyyy/MM/dd"
+                value={endDate}
+                onChange={(d) => setEndDate(d?.toDate?.() || null)}
+                calendar={persian}
+                locale={persian_fa}
+                calendarPosition="bottom-right"
+                minDate={startDate ? new Date(startDate) : undefined}
+                inputClass="w-full px-4 py-2.5 pr-10 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm bg-white"
+                containerClassName="w-full"
+                placeholder="انتخاب تاریخ پایان"
+                format="YYYY/MM/DD"
+                editable={false}
               />
               <FaCalendarAlt className="absolute left-3 top-3 text-gray-400 pointer-events-none" />
             </div>
-            <p className="text-[10px] text-gray-400 mt-1">{toLocalISODate(endDate)}</p>
           </div>
 
+          {/* Actions */}
           <div className="flex gap-2">
             <button
               onClick={onApply}

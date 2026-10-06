@@ -1,4 +1,7 @@
 // src/components/financial/shared/excelExport.js
+import moment from "moment-jalaali";
+
+moment.loadPersian({ usePersianDigits: false, dialect: "persian-modern" });
 
 let _xlsxPromise = null;
 function loadXLSX() {
@@ -13,6 +16,25 @@ function loadXLSX() {
   });
   return _xlsxPromise;
 }
+
+/* ✅ Shamsi formatter for export cells */
+const shamsi = (d) => {
+  if (!d) return "—";
+  try {
+    return moment(d).format("jYYYY/jMM/jDD");
+  } catch {
+    return "—";
+  }
+};
+
+/* ✅ Shamsi filename-safe string */
+const shamsiFileSafe = (d) => {
+  try {
+    return moment(d).format("jYYYY-jMM-jDD");
+  } catch {
+    return "date";
+  }
+};
 
 export async function downloadReportExcel(payload) {
   const XLSX = await loadXLSX();
@@ -32,14 +54,15 @@ export async function downloadReportExcel(payload) {
   /* ---------- 1. Summary sheet ---------- */
   const summaryRows = [
     ["گزارش مالی", "", ""],
-    ["از", dateRange.from, ""],
-    ["تا", dateRange.to, ""],
+    ["از", shamsi(dateRange.from), ""],
+    ["تا", shamsi(dateRange.to), ""],
+    ["تاریخ صدور", shamsi(new Date()), ""],
     ["", "", ""],
-    ["مجموع عواید", summary.totalIncome, ""],
-    ["مجموع خروجی", summary.totalOutflow, ""],
-    ["مانده خالص", summary.balance, ""],
-    ["باقیات معاشات", summary.unpaid, ""],
-    ["باقیات مشتریان", summary.customerRemainder, ""],
+    ["مجموع عواید", summary.totalIncome, "افغانی"],
+    ["مجموع خروجی", summary.totalOutflow, "افغانی"],
+    ["مانده خالص", summary.balance, "افغانی"],
+    ["باقیات معاشات", summary.unpaid, "افغانی"],
+    ["باقیات مشتریان", summary.customerRemainder, "افغانی"],
   ];
   const ws1 = XLSX.utils.aoa_to_sheet(summaryRows);
   ws1["!cols"] = [{ wch: 25 }, { wch: 20 }, { wch: 15 }];
@@ -53,11 +76,11 @@ export async function downloadReportExcel(payload) {
         i + 1,
         Number(r.amount || 0),
         r.name || r.Customer?.fullname || "—",
-        r.createdAt,
+        shamsi(r.createdAt),
       ]),
     ];
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws["!cols"] = [{ wch: 6 }, { wch: 14 }, { wch: 25 }, { wch: 22 }];
+    ws["!cols"] = [{ wch: 6 }, { wch: 14 }, { wch: 25 }, { wch: 16 }];
     XLSX.utils.book_append_sheet(wb, ws, "رسیدها");
   }
 
@@ -69,12 +92,12 @@ export async function downloadReportExcel(payload) {
         i + 1,
         Number(v.amount || 0),
         v.holderInfo?.fullName || "—",
-        v.createdAt,
+        shamsi(v.createdAt),
       ]),
     ];
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws["!cols"] = [{ wch: 6 }, { wch: 14 }, { wch: 25 }, { wch: 22 }];
-    XLSX.utils.book_append_sheet(wb, ws, "واریز والی");
+    ws["!cols"] = [{ wch: 6 }, { wch: 14 }, { wch: 25 }, { wch: 16 }];
+    XLSX.utils.book_append_sheet(wb, ws, "واریز سهام‌دارها");
   }
 
   /* ---------- 4. Expenses ---------- */
@@ -85,11 +108,11 @@ export async function downloadReportExcel(payload) {
         i + 1,
         Number(e.amount || 0),
         e.description || "—",
-        e.createdAt,
+        shamsi(e.createdAt),
       ]),
     ];
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws["!cols"] = [{ wch: 6 }, { wch: 14 }, { wch: 35 }, { wch: 22 }];
+    ws["!cols"] = [{ wch: 6 }, { wch: 14 }, { wch: 35 }, { wch: 16 }];
     XLSX.utils.book_append_sheet(wb, ws, "مصارف");
   }
 
@@ -102,11 +125,11 @@ export async function downloadReportExcel(payload) {
         Number(p.amount || 0),
         p.staffName || p.attendance?.staff?.name || "—",
         p.note || "—",
-        p.paidAt || p.createdAt,
+        shamsi(p.paidAt || p.createdAt),
       ]),
     ];
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws["!cols"] = [{ wch: 6 }, { wch: 14 }, { wch: 25 }, { wch: 25 }, { wch: 22 }];
+    ws["!cols"] = [{ wch: 6 }, { wch: 14 }, { wch: 25 }, { wch: 25 }, { wch: 16 }];
     XLSX.utils.book_append_sheet(wb, ws, "معاشات پرداخت‌شده");
   }
 
@@ -117,7 +140,14 @@ export async function downloadReportExcel(payload) {
       ...unpaidLists.map((u, i) => {
         const total = Number(u.total || 0);
         const paid = Number(u.paid || 0);
-        return [i + 1, u.name || u.range || "—", total, paid, total - paid, u.createdAt];
+        return [
+          i + 1,
+          u.name || u.range || "—",
+          total,
+          paid,
+          total - paid,
+          shamsi(u.createdAt),
+        ];
       }),
     ];
     const ws = XLSX.utils.aoa_to_sheet(rows);
@@ -127,7 +157,7 @@ export async function downloadReportExcel(payload) {
       { wch: 14 },
       { wch: 14 },
       { wch: 14 },
-      { wch: 22 },
+      { wch: 16 },
     ];
     XLSX.utils.book_append_sheet(wb, ws, "معاشات پرداخت‌نشده");
   }
@@ -149,8 +179,9 @@ export async function downloadReportExcel(payload) {
     XLSX.utils.book_append_sheet(wb, ws, "باقیات مشتریان");
   }
 
+  /* ✅ Shamsi filename */
   XLSX.writeFile(
     wb,
-    `Financial_Report_${dateRange.from}_to_${dateRange.to}.xlsx`
+    `Financial_Report_${shamsiFileSafe(dateRange.from)}_to_${shamsiFileSafe(dateRange.to)}.xlsx`
   );
 }

@@ -2,8 +2,12 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import axios from "axios";
 import { FaArrowUp, FaReceipt, FaHandHoldingUsd, FaCar } from "react-icons/fa";
-import { formatCurrency, formatNumber, formatDate } from "../shared/format";
-import { extractArray, num } from "../shared/extract";
+import {
+  formatCurrency,
+  formatNumber,
+  formatShamsi,
+} from "../shared/format.js";
+import { extractArray, num } from "../shared/extract.js";
 import { SummaryCard, LoadingOverlay, PartHeader } from "../shared/UI.jsx";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
@@ -57,7 +61,9 @@ const IncomeOutflowsPart = ({ from, to, onLoaded }) => {
     }
   }, [from, to]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   /* ---------- Totals ---------- */
   const totals = useMemo(() => {
@@ -86,11 +92,12 @@ const IncomeOutflowsPart = ({ from, to, onLoaded }) => {
         valetCount: totals.valetCount,
       },
       raw: {
-        receipts,        // full list
-        valetDeposits,   // full list
+        receipts,
+        valetDeposits,
       },
     });
   }, [totals, receipts, valetDeposits, onLoaded]);
+
   /* ---------- Render ---------- */
   return (
     <section className="space-y-5">
@@ -102,7 +109,7 @@ const IncomeOutflowsPart = ({ from, to, onLoaded }) => {
         <div>
           <h2 className="text-lg font-bold text-gray-800">۱. عواید و واریزها</h2>
           <p className="text-xs text-gray-500">
-            رسیدها + واریز والی‌ها (پول وارد شده)
+            رسیدها + واریز سهام‌دارها (پول وارد شده)
           </p>
         </div>
       </div>
@@ -127,7 +134,7 @@ const IncomeOutflowsPart = ({ from, to, onLoaded }) => {
           isLoading={loading}
         />
         <SummaryCard
-          title="واریز والی‌ها"
+          title="واریز سهام‌دارها"
           value={formatCurrency(totals.totalValetDeposits)}
           icon={FaCar}
           color="bg-gradient-to-b from-teal-500 to-teal-700"
@@ -176,7 +183,7 @@ const IncomeOutflowsPart = ({ from, to, onLoaded }) => {
                         {r.description || r.customerInfo?.fullname || "—"}
                       </p>
                       <p className="text-[10px] text-gray-400 mt-1">
-                        {formatDate(r.createdAt)}
+                        {formatShamsi(r.createdAt)}
                       </p>
                     </div>
                     <p className="font-bold text-emerald-700 text-sm whitespace-nowrap">
@@ -192,7 +199,7 @@ const IncomeOutflowsPart = ({ from, to, onLoaded }) => {
         {/* Valet Deposits List */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           <PartHeader
-            title="واریز والی‌ها"
+            title="واریز سهام‌دارها"
             icon={FaHandHoldingUsd}
             color="bg-teal-50 text-teal-800"
             badge={formatNumber(totals.valetCount)}
@@ -215,7 +222,7 @@ const IncomeOutflowsPart = ({ from, to, onLoaded }) => {
                         {v.description || "واریز"}
                       </p>
                       <p className="text-[10px] text-gray-400 mt-1">
-                        {formatDate(v.createdAt)}
+                        {formatShamsi(v.createdAt)}
                       </p>
                     </div>
                     <p className="font-bold text-teal-700 text-sm whitespace-nowrap">

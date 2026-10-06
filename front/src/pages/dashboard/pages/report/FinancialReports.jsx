@@ -9,15 +9,23 @@ import {
   FaFileExcel,
   FaSpinner,
 } from "react-icons/fa";
-import { getDefaultRange, formatCurrency, toLocalISODate } from "./shared/format";
+
+/* ✅ Single import block — no duplicates */
+import {
+  getDefaultRange,
+  formatCurrency,
+  toLocalISODate,
+  formatShamsi,
+} from "./shared/format";
+
 import { SummaryCard } from "./shared/UI.jsx";
 import FinancialFilters from "./FinancialFilters";
-import IncomeOutflowsPart from "./parts/IncomeOutflowPart";
-import ExpensesSalariesPart from "./parts/ExpensesSalariesPart";
-import UnpaidSalariesPart from "./parts/UnpaidSalariesPart";
-import CustomerRemaindersPart from "./parts/CustomerRemaindersPart";
+import IncomeOutflowsPart from "./parts/IncomeOutflowsPart";   // ✅ fixed path
+import ExpensesSalariesPart from "./parts/ExpensesSalariesPart.jsx";
+import UnpaidSalariesPart from "./parts/UnpaidSalariesPart.jsx";
+import CustomerRemaindersPart from "./parts/CustomerRemaindersPart.jsx";
 
-/* ✅ Download utilities (see explanation below) */
+/* ✅ Download utilities */
 import { downloadReportPDF } from "./shared/pdfExport";
 import { downloadReportCSV } from "./shared/csvExport";
 import { downloadReportExcel } from "./shared/excelExport";
@@ -42,12 +50,12 @@ const FinancialReports = () => {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  /* ---------- ✅ Store full raw data per part for exports ---------- */
+  /* ---------- Store raw data per part for exports ---------- */
   const rawDataRef = useRef({
-    income: null,     // { receipts: [], valetDeposits: [] }
-    outflow: null,    // { expenses: [], paidSalaries: [] }
-    unpaid: null,     // { lists: [] }
-    remainders: null, // { bills: [] }
+    income: null,
+    outflow: null,
+    unpaid: null,
+    remainders: null,
   });
 
   /* ---------- Download states ---------- */
@@ -103,9 +111,7 @@ const FinancialReports = () => {
     };
   }, [part1, part2, part3, part4]);
 
-  /* =========================================================
-     ✅ Callbacks that receive BOTH totals AND raw lists
-     ========================================================= */
+  /* ---------- Callbacks that receive BOTH totals AND raw lists ---------- */
   const handleIncomeLoaded = useCallback((data) => {
     setPart1(data.summary);
     rawDataRef.current.income = data.raw;
@@ -126,28 +132,18 @@ const FinancialReports = () => {
     rawDataRef.current.remainders = data.raw;
   }, []);
 
-  /* =========================================================
-     ✅ Download handlers — build a normalized payload
-     ========================================================= */
+  /* ---------- Download handlers ---------- */
   const buildExportPayload = () => {
     const raw = rawDataRef.current;
     return {
       dateRange: applied,
       generatedAt: new Date(),
       summary,
-
-      // Part 1
       receipts: raw.income?.receipts || [],
       valetDeposits: raw.income?.valetDeposits || [],
-
-      // Part 2
       expenses: raw.outflow?.expenses || [],
       paidSalaries: raw.outflow?.paidSalaries || [],
-
-      // Part 3
       unpaidLists: raw.unpaid?.lists || [],
-
-      // Part 4
       bills: raw.remainders?.bills || [],
     };
   };
@@ -202,23 +198,20 @@ const FinancialReports = () => {
           <div>
             <h1 className="text-2xl font-bold text-gray-800">گزارش مالی</h1>
             <p className="text-sm text-gray-500">
-              گزارش کامل ۴ بخشی — از {applied.from} تا {applied.to}
+              گزارش کامل ۴ بخشی — از {formatShamsi(applied.from)} تا{" "}
+              {formatShamsi(applied.to)}
             </p>
           </div>
         </div>
 
-        {/* ✅ Download Buttons */}
+        {/* Download buttons */}
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={handlePDFDownload}
             disabled={downloadingPDF}
             className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 transition text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {downloadingPDF ? (
-              <FaSpinner className="animate-spin" />
-            ) : (
-              <FaFilePdf />
-            )}
+            {downloadingPDF ? <FaSpinner className="animate-spin" /> : <FaFilePdf />}
             {downloadingPDF ? "..." : "PDF"}
           </button>
 
@@ -227,11 +220,7 @@ const FinancialReports = () => {
             disabled={downloadingCSV}
             className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {downloadingCSV ? (
-              <FaSpinner className="animate-spin" />
-            ) : (
-              <FaFileCsv />
-            )}
+            {downloadingCSV ? <FaSpinner className="animate-spin" /> : <FaFileCsv />}
             {downloadingCSV ? "..." : "CSV"}
           </button>
 
@@ -240,11 +229,7 @@ const FinancialReports = () => {
             disabled={downloadingExcel}
             className="flex items-center gap-2 px-4 py-2 bg-green-700 text-white rounded-xl hover:bg-green-800 transition text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {downloadingExcel ? (
-              <FaSpinner className="animate-spin" />
-            ) : (
-              <FaFileExcel />
-            )}
+            {downloadingExcel ? <FaSpinner className="animate-spin" /> : <FaFileExcel />}
             {downloadingExcel ? "..." : "Excel"}
           </button>
         </div>
@@ -275,7 +260,7 @@ const FinancialReports = () => {
           color="bg-gradient-to-b from-emerald-500 to-emerald-700"
           bgColor="bg-emerald-50"
           iconColor="text-emerald-600"
-          subtitle="رسیدها + واریز والی"
+          subtitle="رسیدها + واریز سهام‌دار"
         />
         <SummaryCard
           title="مجموع خروجی"

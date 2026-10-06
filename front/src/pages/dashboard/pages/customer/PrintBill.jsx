@@ -1,18 +1,22 @@
 // src/components/bills/PrintBill.jsx
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import moment from "moment";
+import moment from "moment-jalaali";
 import { FaPhone, FaPrint, FaTimes, FaSpinner } from "react-icons/fa";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
-const BRAND = import.meta.env.VITE_BRAND_NAME;
+const BRAND = import.meta.env.VITE_BRAND_NAME || "زرین سپورت";
+
+/* ✅ Load Persian locale once */
+moment.loadPersian({ usePersianDigits: false, dialect: "persian-modern" });
+
 const PrintBill = ({
   isOpen,
   onClose,
   billId,
   bill: preloadedBill,
-  receipt,          // ✅ NEW: a single receipt row
-  customer,         // ✅ NEW: customer info (name, phone)
+  receipt,
+  customer,
   autoPrint,
 }) => {
   const [bill, setBill] = useState(preloadedBill || null);
@@ -21,7 +25,6 @@ const PrintBill = ({
 
   /* =========================================================
      Fetch bill whenever billId or isOpen changes
-     (skipped when we already have a preloaded bill OR a receipt)
      ========================================================= */
   useEffect(() => {
     if (!isOpen) return;
@@ -68,10 +71,7 @@ const PrintBill = ({
   }, [isOpen, billId, preloadedBill, receipt]);
 
   /* =========================================================
-     ✅ Normalize: prefer explicit receipt, then fall back to bill
-     Always ends up as a bill-shaped object with these fields:
-       { id, name, phoneNumber, status, total, receipt[], remaind,
-         createdAt, updatedAt, _isReceipt }
+     Normalize: prefer explicit receipt, then fall back to bill
      ========================================================= */
   const effectiveBill = React.useMemo(() => {
     // --- Mode 1: Single receipt ---
@@ -89,7 +89,7 @@ const PrintBill = ({
           customer?.phone_number ||
           receipt.customerInfo?.phoneNumber ||
           "—",
-        status: "receipt", // marker: single payment voucher
+        status: "receipt",
         total: amt,
         receipt: [amt],
         remaind: 0,
@@ -99,7 +99,7 @@ const PrintBill = ({
       };
     }
 
-    // --- Mode 2: Bill (existing behavior) ---
+    // --- Mode 2: Bill ---
     if (bill) {
       return { ...bill, _isReceipt: false };
     }
@@ -147,7 +147,7 @@ const PrintBill = ({
   }
 
   /* =========================================================
-     Extract display values from the normalized object
+     Extract display values
      ========================================================= */
   const receiptArr = Array.isArray(effectiveBill.receipt)
     ? effectiveBill.receipt
@@ -159,7 +159,8 @@ const PrintBill = ({
   const total = Number(effectiveBill.total || 0);
   const remained = Number(effectiveBill.remaind ?? total - paid);
 
-  const today = moment().format("YYYY/MM/DD");
+  /* ✅ Shamsi issue date */
+  const today = moment().format("jYYYY/jMM/jDD");
   const billNumber = effectiveBill.id ? `${effectiveBill.id}` : "—";
 
   const customerName =
@@ -178,7 +179,7 @@ const PrintBill = ({
   const handlePrint = () => window.print();
 
   /* =========================================================
-     Title & status label depend on mode
+     Title & status label
      ========================================================= */
   const documentTitle = effectiveBill._isReceipt
     ? "رسید پرداخت"
@@ -210,10 +211,11 @@ const PrintBill = ({
         >
           {/* ============ Header ============ */}
           <div className="bg-gradient-to-l from-primary to-primary/80 text-white p-4 text-center border-b-4 border-primary">
-            <h1 className="text-xl font-bold mb-1">  {BRAND}</h1>
+            <h1 className="text-xl font-bold mb-1">{BRAND}</h1>
             <p className="text-xs opacity-90 mb-1">{documentTitle}</p>
             <div className="flex justify-between items-center mt-2 text-xs">
               <span>شماره: {formatNumber(billNumber)}</span>
+              {/* ✅ Shamsi date */}
               <span>تاریخ: {today}</span>
             </div>
           </div>
@@ -281,10 +283,11 @@ const PrintBill = ({
                             {formatCurrency(amount)}
                           </td>
                           <td className="border border-gray-300 p-1 text-center text-gray-600">
+                            {/* ✅ Shamsi date */}
                             {moment(
                               effectiveBill.updatedAt ||
                                 effectiveBill.createdAt
-                            ).format("YYYY/MM/DD")}
+                            ).format("jYYYY/jMM/jDD")}
                           </td>
                         </tr>
                       ))}
@@ -298,7 +301,7 @@ const PrintBill = ({
               </div>
             )}
 
-            {/* Description block (only in receipt mode) */}
+            {/* Description block */}
             {effectiveBill._isReceipt && receipt?.description && (
               <div className="mt-3 text-xs text-gray-600 border border-gray-200 rounded p-2 bg-gray-50">
                 <span className="font-semibold">توضیحات: </span>
@@ -315,7 +318,6 @@ const PrintBill = ({
                 <span className="text-primary">{formatCurrency(total)}</span>
               </div>
 
-              {/* Only show paid + remained in bill mode */}
               {!effectiveBill._isReceipt && (
                 <>
                   <div className="flex justify-between">
@@ -343,7 +345,6 @@ const PrintBill = ({
                 </>
               )}
 
-              {/* Receipt mode: confirmation line */}
               {effectiveBill._isReceipt && (
                 <div className="flex justify-between text-green-700 font-semibold border-t border-gray-300 pt-1">
                   <span>وضعیت:</span>

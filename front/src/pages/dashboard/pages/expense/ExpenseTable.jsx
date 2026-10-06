@@ -1,13 +1,29 @@
+// src/components/expenses/ExpenseTable.jsx
 import { useSelector } from "react-redux";
+import moment from "moment-jalaali";
+import { FaEdit, FaTrash, FaClipboardList } from "react-icons/fa";
 import Pagination from "../../pagination/Pagination";
-import { FaEdit, FaTrash } from "react-icons/fa";
 import ExpenseDateDownload from "./ExpenseDateDownload";
+
+/* ✅ Load Persian locale once */
+moment.loadPersian({ usePersianDigits: false, dialect: "persian-modern" });
+
+/* ✅ Hijri Shamsi formatter */
+const formatShamsi = (d) => {
+  if (!d) return "—";
+  try {
+    return moment(d).format("jYYYY/jMM/jDD");
+  } catch {
+    return "—";
+  }
+};
 
 const ExpenseTable = ({
   expenses,
   loading,
   currentPage,
   totalPages,
+  totalItems = 0,
   onPageChange,
   onEdit,
   onDelete,
@@ -15,38 +31,28 @@ const ExpenseTable = ({
   const { currentUser } = useSelector((state) => state.user);
 
   return (
-    <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
-      {/* Table Header */}
+    <div className="bg-white min-h-screen rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+      {/* Header */}
       <div className="bg-gradient-to-r from-primary to-primary/80 text-white p-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-white/20 rounded-full">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                />
-              </svg>
+              <FaClipboardList />
             </div>
             <div>
               <h2 className="text-xl font-bold">لیست هزینه‌ها</h2>
-            </div>
-            <div>
-              <ExpenseDateDownload />
+              <p className="text-xs text-white/80">
+                {totalItems} مورد ثبت شده
+              </p>
             </div>
           </div>
+
+          {/* ✅ Flexible download component */}
+          <ExpenseDateDownload />
         </div>
       </div>
 
-      {/* Table Content */}
+      {/* Table */}
       <div className="overflow-x-auto">
         <table className="w-full text-center">
           <thead className="bg-primary/5 text-primary">
@@ -71,7 +77,7 @@ const ExpenseTable = ({
                 </td>
               </tr>
             ) : expenses.length ? (
-              expenses.map((e, index) => (
+              expenses.map((e) => (
                 <tr
                   key={e.id}
                   className="hover:bg-gray-50 border-b last:border-0 transition-colors"
@@ -109,10 +115,9 @@ const ExpenseTable = ({
                       )}
                     </div>
                   </td>
-                  <td className="p-3">
-                    {e.createdAt
-                      ? new Date(e.createdAt).toLocaleDateString("en-GB")
-                      : "—"}
+                  {/* ✅ Shamsi date */}
+                  <td className="p-3 text-sm text-gray-600">
+                    {formatShamsi(e.createdAt)}
                   </td>
                   <td className="p-3">
                     {currentUser?.role === "admin" ? (
@@ -133,7 +138,7 @@ const ExpenseTable = ({
                         </button>
                       </div>
                     ) : (
-                      "--"
+                      "—"
                     )}
                   </td>
                 </tr>
@@ -142,20 +147,9 @@ const ExpenseTable = ({
               <tr>
                 <td colSpan="7" className="p-8">
                   <div className="flex flex-col items-center justify-center">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-16 w-16 text-gray-300 mb-3"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={1.5}
-                        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                      />
-                    </svg>
+                    <div className="w-16 h-16 mb-3 rounded-full bg-gray-100 flex items-center justify-center">
+                      <FaClipboardList className="text-gray-300 text-2xl" />
+                    </div>
                     <p className="text-gray-500 text-lg">
                       هیچ هزینه‌ای ثبت نشده است
                     </p>

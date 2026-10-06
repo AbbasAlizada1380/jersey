@@ -1,5 +1,7 @@
+// src/components/customers/CustomerBills.jsx
 import { useEffect, useState } from "react";
 import axios from "axios";
+import moment from "moment-jalaali";
 import {
   FaFileInvoiceDollar,
   FaTimes,
@@ -14,10 +16,13 @@ import {
   FaCheckCircle,
 } from "react-icons/fa";
 import CustomerReceipts from "./CustomerReceipts";
-import Pagination from "../../pagination/Pagination.jsx"; // ← adjust path if needed
+import Pagination from "../../pagination/Pagination.jsx";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 const LIMIT = 10;
+
+/* ✅ Load Persian locale once */
+moment.loadPersian({ usePersianDigits: false, dialect: "persian-modern" });
 
 /* ---------------- Formatting helpers ---------------- */
 const formatCurrency = (amount) => {
@@ -25,9 +30,14 @@ const formatCurrency = (amount) => {
   return new Intl.NumberFormat("en-US").format(Number(amount)) + " افغانی";
 };
 
+/* ✅ Hijri Shamsi date formatter */
 const formatDate = (d) => {
   if (!d) return "—";
-  return new Intl.DateTimeFormat("en-GB").format(new Date(d));
+  try {
+    return moment(d).format("jYYYY/jMM/jDD");
+  } catch {
+    return "—";
+  }
 };
 
 const statusBadge = (status) => {
@@ -62,7 +72,7 @@ const customerTypeBadge = (type) => {
 };
 
 /* =========================================================
-   Bill detail panel (right column)
+   Bill detail panel
    ========================================================= */
 function BillDetail({ bill, loading, onClose }) {
   if (loading) {
@@ -101,6 +111,7 @@ function BillDetail({ bill, loading, onClose }) {
           </div>
           <div>
             <h3 className="font-bold">بل #{bill.id}</h3>
+            {/* ✅ Shamsi date */}
             <p className="text-xs text-white/80">
               {formatDate(bill.createdAt)}
             </p>
@@ -481,7 +492,7 @@ export default function CustomerBills({ customer, onClose, onPaid }) {
           </div>
         )}
 
-        {/* ---------- Payment bar ---------- */}
+        {/* Payment bar */}
         {canPay && (
           <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4">
             <div className="flex items-center gap-2 mb-3">
@@ -729,6 +740,7 @@ export default function CustomerBills({ customer, onClose, onPaid }) {
                           <td className="px-3 py-3">
                             {statusBadge(b.status)}
                           </td>
+                          {/* ✅ Shamsi date */}
                           <td className="px-3 py-3 text-sm text-gray-600">
                             {formatDate(b.createdAt)}
                           </td>
@@ -752,13 +764,13 @@ export default function CustomerBills({ customer, onClose, onPaid }) {
               </div>
             )}
 
-              <div className="border-t border-gray-200 mt-3">
-                <Pagination
-                  currentPage={page}
-                  totalPages={totalPages}
-                  onPageChange={fetchBills}
-                />
-              </div>
+            <div className="border-t border-gray-200 mt-3">
+              <Pagination
+                currentPage={page}
+                totalPages={totalPages}
+                onPageChange={fetchBills}
+              />
+            </div>
           </div>
 
           <div className={hasSelection ? "lg:col-span-2" : "hidden"}>

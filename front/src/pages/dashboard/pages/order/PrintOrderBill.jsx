@@ -1,11 +1,15 @@
+// src/components/order/PrintOrderBill.jsx
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import moment from "moment";
+import moment from "moment-jalaali";        // ✅ jalaali
 import { FaPhone, FaPrint, FaTimes, FaSpinner } from "react-icons/fa";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
-
 const BRAND = import.meta.env.VITE_BRAND_NAME;
+
+/* ✅ Load Persian locale once */
+moment.loadPersian({ usePersianDigits: false, dialect: "persian-modern" });
+
 const PrintOrderBill = ({ isOpen, onClose, orderId, autoPrint }) => {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -27,8 +31,8 @@ const PrintOrderBill = ({ isOpen, onClose, orderId, autoPrint }) => {
         if (!cancelled) {
           setError(
             err?.response?.data?.message ||
-            err.message ||
-            "خطا در دریافت اطلاعات بل"
+              err.message ||
+              "خطا در دریافت اطلاعات بل"
           );
         }
       } finally {
@@ -67,9 +71,7 @@ const PrintOrderBill = ({ isOpen, onClose, orderId, autoPrint }) => {
     return (
       <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-50 p-4">
         <div className="bg-white rounded-xl px-6 py-4 shadow-lg max-w-sm w-full text-center space-y-3">
-          <p className="text-sm text-red-600">
-            {error || "بل یافت نشد"}
-          </p>
+          <p className="text-sm text-red-600">{error || "بل یافت نشد"}</p>
           <button
             onClick={onClose}
             className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg inline-flex items-center gap-2"
@@ -88,34 +90,34 @@ const PrintOrderBill = ({ isOpen, onClose, orderId, autoPrint }) => {
 
   const items = Array.isArray(order.orders)
     ? order.orders.map((o) => {
-      const price = Number(o.price || 0);
-      const qty = Number(o.quantity || 0);
-      const lineTotal =
-        Number(o.total) > 0 ? Number(o.total) : price * qty;
+        const price = Number(o.price || 0);
+        const qty = Number(o.quantity || 0);
+        const lineTotal = Number(o.total) > 0 ? Number(o.total) : price * qty;
 
-      const description = [
-        o.jerseyType,
-        o.size ? `سایز ${o.size}` : null,
-        o.logo ? `لوگو: ${o.logo}` : null,
-        o.athleteNumber ? `شماره: ${o.athleteNumber}` : null,
-        o.codeNumber ? `کد: ${o.codeNumber}` : null,
-      ]
-        .filter(Boolean)
-        .join(" | ");
+        const description = [
+          o.jerseyType,
+          o.size ? `سایز ${o.size}` : null,
+          o.logo ? `لوگو: ${o.logo}` : null,
+          o.athleteNumber ? `شماره: ${o.athleteNumber}` : null,
+          o.codeNumber ? `کد: ${o.codeNumber}` : null,
+        ]
+          .filter(Boolean)
+          .join(" | ");
 
-      return {
-        name: description || "—",
-        quantity: qty,
-        price_per_unit: price,
-        money: lineTotal,
-      };
-    })
+        return {
+          name: description || "—",
+          quantity: qty,
+          price_per_unit: price,
+          money: lineTotal,
+        };
+      })
     : [];
 
   const total = items.reduce((sum, d) => sum + Number(d.money || 0), 0);
   const remained = total - paid;
 
-  const today = moment().format("YYYY/MM/DD");
+  /* ✅ Shamsi issue date */
+  const today = moment().format("jYYYY/jMM/jDD");
   const billNumber = order.id
     ? `${order.id}`
     : `ORD-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
@@ -134,9 +136,10 @@ const PrintOrderBill = ({ isOpen, onClose, orderId, autoPrint }) => {
         >
           {/* Header */}
           <div className="bg-gradient-to-l from-primary to-primary/80 text-white p-4 text-center border-b-4 border-primary">
-            <h1 className="text-xl font-bold mb-1">  {BRAND}</h1>
+            <h1 className="text-xl font-bold mb-1">{BRAND}</h1>
             <div className="flex justify-between items-center mt-2 text-xs">
               <span>شماره: {formatNumber(billNumber)}</span>
+              {/* ✅ Shamsi date */}
               <span>تاریخ: {today}</span>
             </div>
           </div>
@@ -218,9 +221,7 @@ const PrintOrderBill = ({ isOpen, onClose, orderId, autoPrint }) => {
               </div>
               <div className="flex justify-between">
                 <span>مقدار پرداختی:</span>
-                <span className="text-green-600">
-                  {formatCurrency(paid)}
-                </span>
+                <span className="text-green-600">{formatCurrency(paid)}</span>
               </div>
               <div className="flex justify-between font-bold border-t border-gray-300 pt-1">
                 <span className={remained > 0 ? "text-red-600" : "text-green-600"}>

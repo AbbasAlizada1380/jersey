@@ -2,7 +2,11 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import axios from "axios";
 import { FaUser, FaHandHoldingUsd, FaUsers } from "react-icons/fa";
-import { formatCurrency, formatNumber, formatDate } from "../shared/format";
+import {
+  formatCurrency,
+  formatNumber,
+  formatShamsi,
+} from "../shared/format";
 import { extractArray, num } from "../shared/extract";
 import { SummaryCard, LoadingOverlay, PartHeader } from "../shared/UI.jsx";
 
@@ -25,14 +29,12 @@ const CustomerRemaindersPart = ({ from, to, onLoaded }) => {
             limit: 10000,
             status: "unpaid,partial",
             customerType,
-            // ✅ Include date range if backend supports it
             ...(from ? { from } : {}),
             ...(to ? { to } : {}),
           },
         });
         return extractArray(res.data, "bills", "results").map((b) => ({
           ...b,
-          // Ensure customerType is set even if backend omits it
           customerType: b.customerType || customerType,
         }));
       } catch (err) {
@@ -47,7 +49,6 @@ const CustomerRemaindersPart = ({ from, to, onLoaded }) => {
         fetchByType("permanent"),
       ]);
 
-      // Merge + sort by remaining amount (biggest first)
       const merged = [...permanent, ...temporary].sort(
         (a, b) => num(b.remaind) - num(a.remaind)
       );
@@ -94,19 +95,20 @@ const CustomerRemaindersPart = ({ from, to, onLoaded }) => {
     };
   }, [bills]);
 
-useEffect(() => {
-  onLoaded?.({
-    summary: {
-      customerRemainderCount: totals.count,
-      totalCustomerRemainder: totals.totalRemainder,
-      permanentRemainderCount: totals.permanentCount,
-      temporaryRemainderCount: totals.temporaryCount,
-    },
-    raw: {
-      bills,   // full list of unpaid/partial bills
-    },
-  });
-}, [totals, bills, onLoaded]);
+  useEffect(() => {
+    onLoaded?.({
+      summary: {
+        customerRemainderCount: totals.count,
+        totalCustomerRemainder: totals.totalRemainder,
+        permanentRemainderCount: totals.permanentCount,
+        temporaryRemainderCount: totals.temporaryCount,
+      },
+      raw: {
+        bills,
+      },
+    });
+  }, [totals, bills, onLoaded]);
+
   /* ---------- Render ---------- */
   return (
     <section className="space-y-5">
@@ -130,7 +132,7 @@ useEffect(() => {
         </div>
       )}
 
-      {/* ---------- Summary Cards ---------- */}
+      {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 relative">
         {loading && <LoadingOverlay />}
 
@@ -170,7 +172,7 @@ useEffect(() => {
         />
       </div>
 
-      {/* ---------- List ---------- */}
+      {/* List */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <PartHeader
           title="باقیات مشتریان"
@@ -237,7 +239,7 @@ useEffect(() => {
                       )}
 
                       <p className="text-[10px] text-gray-400 mt-1">
-                        {formatDate(b.createdAt)}
+                        {formatShamsi(b.createdAt)}
                       </p>
                     </div>
 
@@ -262,7 +264,7 @@ useEffect(() => {
                     </span>
                   </div>
 
-                  {/* Individual receipt breakdown (if more than 1 payment) */}
+                  {/* Individual receipt breakdown */}
                   {Array.isArray(b.receipt) && b.receipt.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2" dir="ltr">
                       {b.receipt.map((r, i) => (

@@ -1,3 +1,4 @@
+// src/components/bills/BillsTable.jsx
 import { useEffect, useState } from "react";
 import axios from "axios";
 import {
@@ -12,11 +13,14 @@ import {
   FaEdit,
   FaPrint,
 } from "react-icons/fa";
+import moment from "moment-jalaali";
 import Pagination from "../../pagination/Pagination.jsx";
-import PrintOrderBill from "./PrintOrderBill.jsx"; // ← adjust path if needed
+import PrintOrderBill from "./PrintOrderBill.jsx";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 const LIMIT = 20;
+
+moment.loadPersian({ usePersianDigits: false, dialect: "persian-modern" });
 
 /* -------------------------
    Helpers
@@ -26,9 +30,14 @@ const formatCurrency = (amount) => {
   return new Intl.NumberFormat("en-US").format(Number(amount)) + " افغانی";
 };
 
+/* ✅ Hijri Shamsi date formatter */
 const formatDate = (dateString) => {
   if (!dateString) return "—";
-  return new Intl.DateTimeFormat("en-GB").format(new Date(dateString));
+  try {
+    return moment(dateString).format("jYYYY/jMM/jDD");
+  } catch {
+    return "—";
+  }
 };
 
 const statusBadge = (status) => {
@@ -463,6 +472,7 @@ export default function BillsTable({ refreshKey = 0, onEdit }) {
                           <td className="px-4 py-3">
                             {statusBadge(bill.status)}
                           </td>
+                          {/* ✅ Shamsi date */}
                           <td className="px-4 py-3 text-sm text-gray-600">
                             {formatDate(bill.createdAt)}
                           </td>

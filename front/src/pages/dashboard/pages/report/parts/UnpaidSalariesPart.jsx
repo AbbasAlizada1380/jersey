@@ -2,7 +2,11 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import axios from "axios";
 import { FaExclamationTriangle, FaUsers } from "react-icons/fa";
-import { formatCurrency, formatNumber, formatDate } from "../shared/format";
+import {
+  formatCurrency,
+  formatNumber,
+  formatShamsi,
+} from "../shared/format";
 import { extractArray, num } from "../shared/extract";
 import { SummaryCard, LoadingOverlay, PartHeader } from "../shared/UI.jsx";
 
@@ -24,7 +28,7 @@ const UnpaidSalariesPart = ({ from, to, onLoaded }) => {
       });
       const list = extractArray(res.data, "salaries", "staff_salaries", "results");
 
-      // ✅ Keep only lists with unpaid balance (total > paid)
+      /* Keep only lists with unpaid balance (total > paid) */
       const unpaid = list.filter((s) => {
         const total = num(s.total);
         const paid = num(s.paid);
@@ -62,19 +66,20 @@ const UnpaidSalariesPart = ({ from, to, onLoaded }) => {
     };
   }, [unpaidLists]);
 
-useEffect(() => {
-  onLoaded?.({
-    summary: {
-      unpaidCount: totals.count,
-      totalUnpaid: totals.totalUnpaid,
-      totalOwed: totals.totalOwed,
-      totalPaidTowardsUnpaid: totals.totalPaid,
-    },
-    raw: {
-      lists: unpaidLists,   // full list of unpaid salary lists
-    },
-  });
-}, [totals, unpaidLists, onLoaded]);
+  useEffect(() => {
+    onLoaded?.({
+      summary: {
+        unpaidCount: totals.count,
+        totalUnpaid: totals.totalUnpaid,
+        totalOwed: totals.totalOwed,
+        totalPaidTowardsUnpaid: totals.totalPaid,
+      },
+      raw: {
+        lists: unpaidLists,
+      },
+    });
+  }, [totals, unpaidLists, onLoaded]);
+
   /* ---------- Render ---------- */
   return (
     <section className="space-y-5">
@@ -98,7 +103,7 @@ useEffect(() => {
         </div>
       )}
 
-      {/* ✅ Only 2 cards */}
+      {/* Two cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 relative">
         {loading && <LoadingOverlay />}
 
@@ -157,7 +162,7 @@ useEffect(() => {
                         {s.range || s.description || "—"}
                       </p>
                       <p className="text-[10px] text-gray-400 mt-1">
-                        {formatDate(s.createdAt)}
+                        {formatShamsi(s.createdAt)}
                       </p>
                     </div>
                     <div className="text-right">

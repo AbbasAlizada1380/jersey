@@ -4,7 +4,28 @@ import autoTable from "jspdf-autotable";
 import moment from "moment-jalaali";
 import VazirmatnTTF from "../../../../../../public/ttf/Vazirmatn.js";
 
+moment.loadPersian({ usePersianDigits: false, dialect: "persian-modern" });
+
 const fmt = (n) => Number(n || 0).toLocaleString();
+
+/* ✅ Shamsi formatter */
+const shamsi = (d) => {
+  if (!d) return "—";
+  try {
+    return moment(d).format("jYYYY/jMM/jDD");
+  } catch {
+    return "—";
+  }
+};
+
+/* ✅ Shamsi filename-safe string */
+const shamsiFileSafe = (d) => {
+  try {
+    return moment(d).format("jYYYY-jMM-jDD");
+  } catch {
+    return "date";
+  }
+};
 
 export async function downloadReportPDF(payload) {
   const {
@@ -37,22 +58,27 @@ export async function downloadReportPDF(payload) {
     }
   };
 
-  // Title
+  /* ✅ Title with Shamsi dates */
   doc.setFontSize(16);
   doc.text(
-    `گزارش مالی از ${dateRange.from} تا ${dateRange.to}`,
+    `گزارش مالی از ${shamsi(dateRange.from)} تا ${shamsi(dateRange.to)}`,
     rightX,
     50,
     { align: "right" }
   );
 
-  /* =========================================================
-     ✅ addTable — accepts columns as [{ label, get }, ...]
-     ========================================================= */
+  /* ✅ Subtitle: issue date */
+  doc.setFontSize(10);
+  doc.setTextColor(80, 80, 80);
+  doc.text(`تاریخ صدور: ${shamsi(new Date())}`, rightX, 70, {
+    align: "right",
+  });
+  doc.setTextColor(0, 0, 0);
+
+  /* ---------- addTable ---------- */
   const addTable = (title, items, columns, total, count) => {
     ensureSpace(150);
 
-    // Section title
     doc.setFontSize(12);
     doc.text(title, rightX, currentY, { align: "right" });
     currentY += 20;
@@ -64,10 +90,7 @@ export async function downloadReportPDF(payload) {
       return;
     }
 
-    // ✅ Headers = plain strings from column.label
     const head = [columns.map((c) => c.label)];
-
-    // ✅ Body = run each column's getter for each row
     const body = items.map((it) => columns.map((c) => c.get(it)));
 
     autoTable(doc, {
@@ -93,11 +116,14 @@ export async function downloadReportPDF(payload) {
         halign: "center",
       },
       margin: { left: 20, right: 20 },
+      /* ✅ Ensure Vazirmatn on every cell */
+      didParseCell: (data) => {
+        data.cell.styles.font = "Vazirmatn";
+      },
     });
 
     currentY = doc.lastAutoTable.finalY + 10;
 
-    // Totals line
     doc.setFontSize(10);
     doc.text(`تعداد: ${count} | مجموع: ${fmt(total)}`, rightX, currentY, {
       align: "right",
@@ -105,18 +131,14 @@ export async function downloadReportPDF(payload) {
     currentY += 30;
   };
 
-  /* =========================================================
-     Tables — each column is now { label, get }
-     ========================================================= */
-
   /* ---------- 1. Receipts ---------- */
   addTable(
     "رسیدها",
     receipts,
     [
-      { label: "مبلغ",  get: (r) => fmt(r.amount) },
+      { label: "مبلغ", get: (r) => fmt(r.amount) },
       { label: "مشتری", get: (r) => r.name || r.Customer?.fullname || "—" },
-      { label: "تاریخ", get: (r) => moment(r.createdAt).format("YYYY/MM/DD") },
+      { label: "تاریخ", get: (r) => shamsi(r.createdAt) },
     ],
     receipts.reduce((s, r) => s + Number(r.amount || 0), 0),
     receipts.length
@@ -124,12 +146,12 @@ export async function downloadReportPDF(payload) {
 
   /* ---------- 2. Valet Deposits ---------- */
   addTable(
-    "واریز سهام دار‌ها",
+    "واریز سهام‌دارها",
     valetDeposits,
     [
-      { label: "مبلغ",  get: (v) => fmt(v.amount) },
-      { label: "سهام دار",  get: (v) => v.holderInfo?.fullName || "—" },
-      { label: "تاریخ", get: (v) => moment(v.createdAt).format("YYYY/MM/DD") },
+      { label: "مبلغ", get: (v) => fmt(v.amount) },
+      { label: "سهام‌دار", get: (v) => v.holderInfo?.fullName || "—" },
+      { label: "تاریخ", get: (v) => shamsi(v.createdAt) },
     ],
     valetDeposits.reduce((s, v) => s + Number(v.amount || 0), 0),
     valetDeposits.length
@@ -140,9 +162,9 @@ export async function downloadReportPDF(payload) {
     "مصارف",
     expenses,
     [
-      { label: "مبلغ",  get: (e) => fmt(e.amount) },
-      { label: "شرح",   get: (e) => e.description || "—" },
-      { label: "تاریخ", get: (e) => moment(e.createdAt).format("YYYY/MM/DD") },
+      { label: "مبلغ", get: (e) => fmt(e.amount) },
+      { label: "شرح", get: (e) => e.description || "—" },
+      { label: "تاریخ", get: (e) => shamsi(e.createdAt) },
     ],
     expenses.reduce((s, e) => s + Number(e.amount || 0), 0),
     expenses.length
@@ -153,19 +175,13 @@ export async function downloadReportPDF(payload) {
     "معاشات پرداخت‌شده",
     paidSalaries,
     [
-      { label: "مبلغ",   get: (p) => fmt(p.amount) },
+      { label: "مبلغ", get: (p) => fmt(p.amount) },
       {
         label: "کارمند",
         get: (p) => p.staffName || p.attendance?.staff?.name || "—",
       },
-      {
-        label: "شرح",
-        get: (p) => p.note || "—",
-      },
-      {
-        label: "تاریخ",
-        get: (p) => moment(p.paidAt || p.createdAt).format("YYYY/MM/DD"),
-      },
+      { label: "شرح", get: (p) => p.note || "—" },
+      { label: "تاریخ", get: (p) => shamsi(p.paidAt || p.createdAt) },
     ],
     paidSalaries.reduce((s, p) => s + Number(p.amount || 0), 0),
     paidSalaries.length
@@ -176,17 +192,14 @@ export async function downloadReportPDF(payload) {
     "معاشات پرداخت‌نشده",
     unpaidLists,
     [
-      { label: "نام لیست",     get: (u) => u.name || u.range || "—" },
-      { label: "کل",           get: (u) => fmt(u.total) },
-      { label: "پرداخت‌شده",   get: (u) => fmt(u.paid) },
+      { label: "نام لیست", get: (u) => u.name || u.range || "—" },
+      { label: "کل", get: (u) => fmt(u.total) },
+      { label: "پرداخت‌شده", get: (u) => fmt(u.paid) },
       {
         label: "باقی‌مانده",
         get: (u) => fmt(Number(u.total || 0) - Number(u.paid || 0)),
       },
-      {
-        label: "تاریخ",
-        get: (u) => moment(u.createdAt).format("YYYY/MM/DD"),
-      },
+      { label: "تاریخ", get: (u) => shamsi(u.createdAt) },
     ],
     unpaidLists.reduce(
       (s, u) => s + (Number(u.total || 0) - Number(u.paid || 0)),
@@ -200,21 +213,19 @@ export async function downloadReportPDF(payload) {
     "باقیات مشتریان",
     bills,
     [
-      { label: "مشتری",       get: (b) => b.name || "—" },
+      { label: "مشتری", get: (b) => b.name || "—" },
       {
         label: "نوع",
         get: (b) => (b.customerType === "permanent" ? "دائمی" : "موقت"),
       },
-      { label: "باقی‌مانده",  get: (b) => fmt(b.remaind) },
-      { label: "تلفن",        get: (b) => b.phoneNumber || "—" },
+      { label: "باقی‌مانده", get: (b) => fmt(b.remaind) },
+      { label: "تلفن", get: (b) => b.phoneNumber || "—" },
     ],
     bills.reduce((s, b) => s + Number(b.remaind || 0), 0),
     bills.length
   );
 
-  /* =========================================================
-     Summary
-     ========================================================= */
+  /* ---------- Summary ---------- */
   ensureSpace(300);
   doc.setFontSize(14);
   doc.text("خلاصه مالی", rightX, currentY, { align: "right" });
@@ -222,20 +233,18 @@ export async function downloadReportPDF(payload) {
 
   doc.setFontSize(10);
   const summaryLines = [
-    ["مجموع عواید",        summary.totalIncome],
-    ["مجموع خروجی",        summary.totalOutflow],
-    ["مانده خالص",         summary.balance],
-    ["باقیات معاشات",      summary.unpaid],
-    ["باقیات مشتریان",     summary.customerRemainder],
+    ["مجموع عواید", summary.totalIncome],
+    ["مجموع خروجی", summary.totalOutflow],
+    ["مانده خالص", summary.balance],
+    ["باقیات معاشات", summary.unpaid],
+    ["باقیات مشتریان", summary.customerRemainder],
   ];
   summaryLines.forEach(([label, val]) => {
     doc.text(`${label} : ${fmt(val)}`, rightX, currentY, { align: "right" });
     currentY += 16;
   });
 
-  /* =========================================================
-     Page numbers
-     ========================================================= */
+  /* ---------- Page numbers ---------- */
   const pageCount = doc.internal.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
@@ -246,5 +255,8 @@ export async function downloadReportPDF(payload) {
     });
   }
 
-  doc.save(`Financial_Report_${dateRange.from}_to_${dateRange.to}.pdf`);
+  /* ✅ Shamsi filename */
+  doc.save(
+    `Financial_Report_${shamsiFileSafe(dateRange.from)}_to_${shamsiFileSafe(dateRange.to)}.pdf`
+  );
 }

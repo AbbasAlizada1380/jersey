@@ -1,3 +1,4 @@
+// src/components/bills/TemporaryAccounts.jsx
 import { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import {
@@ -11,12 +12,15 @@ import {
   FaEdit,
   FaPrint,
 } from "react-icons/fa";
+import moment from "moment-jalaali";
 import { downloadTemporaryAccountsPDF } from "./downloadTemporaryAccountsPDF";
-import Pagination from "../../pagination/Pagination.jsx"; // ← adjust path if needed
-import PrintOrderBill from "../order/PrintOrderBill.jsx"; // ← adjust path if needed
+import Pagination from "../../pagination/Pagination.jsx";
+import PrintOrderBill from "../order/PrintOrderBill.jsx";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 const LIMIT = 20;
+
+moment.loadPersian({ usePersianDigits: false, dialect: "persian-modern" });
 
 /* ---------------- helpers ---------------- */
 const formatCurrency = (amount) => {
@@ -24,9 +28,14 @@ const formatCurrency = (amount) => {
   return new Intl.NumberFormat("en-US").format(Number(amount)) + " افغانی";
 };
 
+/* ✅ Hijri Shamsi date formatter */
 const formatDate = (d) => {
   if (!d) return "—";
-  return new Intl.DateTimeFormat("en-GB").format(new Date(d));
+  try {
+    return moment(d).format("jYYYY/jMM/jDD");
+  } catch {
+    return "—";
+  }
 };
 
 const statusBadge = (status) => {
@@ -234,6 +243,39 @@ export default function TemporaryAccounts({ refreshKey = 0, onEdit }) {
           فیلترها
         </div>
 
+        {/* Status chips */}
+        <div className="flex flex-wrap gap-2">
+          {[
+            { key: "unpaid", label: "پرداخت نشده", cls: "text-red-700 border-red-300" },
+            { key: "partial", label: "بخشی", cls: "text-yellow-700 border-yellow-300" },
+          ].map((opt) => {
+            const active = statuses.includes(opt.key);
+            return (
+              <button
+                key={opt.key}
+                type="button"
+                onClick={() => toggleStatus(opt.key)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${
+                  active
+                    ? "bg-primary text-white border-primary"
+                    : `bg-white ${opt.cls} hover:border-primary`
+                }`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+          {(statuses.length !== 2 || from || to) && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="px-3 py-1.5 rounded-full text-xs font-medium text-gray-600 hover:bg-gray-200 transition flex items-center gap-1"
+            >
+              <FaTimes className="text-[10px]" />
+              پاک کردن
+            </button>
+          )}
+        </div>
 
         {/* Date range */}
         <div className="flex flex-wrap items-center gap-3">
@@ -245,6 +287,11 @@ export default function TemporaryAccounts({ refreshKey = 0, onEdit }) {
               onChange={(e) => setFrom(e.target.value)}
               className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:ring-2 focus:ring-primary focus:border-primary"
             />
+            {from && (
+              <span className="text-[10px] text-gray-400">
+                ({formatDate(from)})
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <label className="text-xs text-gray-600">تا تاریخ</label>
@@ -254,6 +301,11 @@ export default function TemporaryAccounts({ refreshKey = 0, onEdit }) {
               onChange={(e) => setTo(e.target.value)}
               className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:ring-2 focus:ring-primary focus:border-primary"
             />
+            {to && (
+              <span className="text-[10px] text-gray-400">
+                ({formatDate(to)})
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -365,6 +417,7 @@ export default function TemporaryAccounts({ refreshKey = 0, onEdit }) {
                         {formatCurrency(b.remaind)}
                       </td>
                       <td className="px-3 py-3">{statusBadge(b.status)}</td>
+                      {/* ✅ Shamsi date */}
                       <td className="px-3 py-3 text-sm text-gray-600">
                         {formatDate(b.createdAt)}
                       </td>

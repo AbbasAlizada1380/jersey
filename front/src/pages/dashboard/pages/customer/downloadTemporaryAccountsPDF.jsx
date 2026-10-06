@@ -4,7 +4,26 @@ import autoTable from "jspdf-autotable";
 import moment from "moment-jalaali";
 import VazirmatnTTF from "../../../../../public/ttf/Vazirmatn";
 
-moment.locale("en");
+moment.loadPersian({ usePersianDigits: false, dialect: "persian-modern" });
+
+/* ✅ Shamsi formatter */
+const shamsi = (d) => {
+  if (!d) return "—";
+  try {
+    return moment(d).format("jYYYY/jMM/jDD");
+  } catch {
+    return "—";
+  }
+};
+
+/* ✅ Shamsi filename-safe string */
+const shamsiFileSafe = (d) => {
+  try {
+    return moment(d).format("jYYYY-jMM-jDD");
+  } catch {
+    return "date";
+  }
+};
 
 export function downloadTemporaryAccountsPDF({ bills, summary, filters = {} }) {
   if (!bills || bills.length === 0) {
@@ -20,7 +39,10 @@ export function downloadTemporaryAccountsPDF({ bills, summary, filters = {} }) {
   doc.setFont("Vazirmatn");
 
   const pageWidth = doc.internal.pageSize.getWidth();
-  const today = moment().format("YYYY/MM/DD");
+
+  /* ✅ Today in Shamsi */
+  const todayShamsi = moment().format("jYYYY/jMM/jDD");
+  const todayFileSafe = moment().format("jYYYY-jMM-jDD");
 
   /* ---------- Title ---------- */
   doc.setFontSize(15);
@@ -28,7 +50,7 @@ export function downloadTemporaryAccountsPDF({ bills, summary, filters = {} }) {
     align: "right",
   });
 
-  /* ---------- Subtitle ---------- */
+  /* ---------- Subtitle (Shamsi dates) ---------- */
   const parts = [];
   if (filters.status) {
     const map = { unpaid: "پرداخت نشده", partial: "بخشی" };
@@ -38,9 +60,9 @@ export function downloadTemporaryAccountsPDF({ bills, summary, filters = {} }) {
       .join(" ، ");
     parts.push(`وضعیت: ${labels}`);
   }
-  if (filters.from) parts.push(`از: ${filters.from}`);
-  if (filters.to) parts.push(`تا: ${filters.to}`);
-  parts.push(`تاریخ صدور: ${today}`);
+  if (filters.from) parts.push(`از: ${shamsi(filters.from)}`);
+  if (filters.to) parts.push(`تا: ${shamsi(filters.to)}`);
+  parts.push(`تاریخ صدور: ${todayShamsi}`);
 
   doc.setFontSize(10);
   doc.setTextColor(80, 80, 80);
@@ -89,13 +111,14 @@ export function downloadTemporaryAccountsPDF({ bills, summary, filters = {} }) {
     headStyles: {
       font: "Vazirmatn",
       fontStyle: "normal",
-      fillColor: [30, 64, 175], // primary
+      fillColor: [30, 64, 175],
       textColor: [255, 255, 255],
       fontSize: 9,
       halign: "center",
     },
-    didDrawCell: (data) => {
-      if (data.cell) data.cell.styles.font = "Vazirmatn";
+    /* ✅ didParseCell runs BEFORE drawing — safer than didDrawCell */
+    didParseCell: (data) => {
+      data.cell.styles.font = "Vazirmatn";
     },
   });
 
@@ -128,6 +151,6 @@ export function downloadTemporaryAccountsPDF({ bills, summary, filters = {} }) {
     { align: "right" }
   );
 
-  /* ---------- Save ---------- */
-  doc.save(`Temporary_Accounts_${today}.pdf`);
+  /* ✅ Shamsi filename */
+  doc.save(`Temporary_Accounts_${todayFileSafe}.pdf`);
 }

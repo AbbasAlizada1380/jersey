@@ -1,8 +1,30 @@
 // src/components/financial/shared/csvExport.js
+import moment from "moment-jalaali";
+
+moment.loadPersian({ usePersianDigits: false, dialect: "persian-modern" });
 
 const esc = (v) => {
   const s = String(v ?? "").replace(/"/g, '""');
   return `"${s}"`;
+};
+
+/* ✅ Shamsi formatter */
+const shamsi = (d) => {
+  if (!d) return "—";
+  try {
+    return moment(d).format("jYYYY/jMM/jDD");
+  } catch {
+    return "—";
+  }
+};
+
+/* ✅ Shamsi filename-safe string */
+const shamsiFileSafe = (d) => {
+  try {
+    return moment(d).format("jYYYY-jMM-jDD");
+  } catch {
+    return "date";
+  }
 };
 
 export function downloadReportCSV(payload) {
@@ -19,7 +41,8 @@ export function downloadReportCSV(payload) {
 
   const lines = [];
 
-  lines.push(`گزارش مالی, از ${dateRange.from} تا ${dateRange.to}`);
+  lines.push(`گزارش مالی, از ${shamsi(dateRange.from)} تا ${shamsi(dateRange.to)}`);
+  lines.push(`تاریخ صدور, ${shamsi(new Date())}`);
   lines.push("");
 
   /* ---------- Summary ---------- */
@@ -36,7 +59,12 @@ export function downloadReportCSV(payload) {
   lines.push(["#", "مبلغ", "مشتری", "تاریخ"].map(esc).join(","));
   receipts.forEach((r, i) => {
     lines.push(
-      [i + 1, r.amount, r.name || r.Customer?.fullname || "—", r.createdAt]
+      [
+        i + 1,
+        r.amount,
+        r.name || r.Customer?.fullname || "—",
+        shamsi(r.createdAt),
+      ]
         .map(esc)
         .join(",")
     );
@@ -44,11 +72,11 @@ export function downloadReportCSV(payload) {
   lines.push("");
 
   /* ---------- Valet Deposits ---------- */
-  lines.push("### واریز والی‌ها ###");
-  lines.push(["#", "مبلغ", "حامل", "تاریخ"].map(esc).join(","));
+  lines.push("### واریز سهام‌دارها ###");
+  lines.push(["#", "مبلغ", "سهام‌دار", "تاریخ"].map(esc).join(","));
   valetDeposits.forEach((v, i) => {
     lines.push(
-      [i + 1, v.amount, v.holderInfo?.fullName || "—", v.createdAt]
+      [i + 1, v.amount, v.holderInfo?.fullName || "—", shamsi(v.createdAt)]
         .map(esc)
         .join(",")
     );
@@ -60,7 +88,9 @@ export function downloadReportCSV(payload) {
   lines.push(["#", "مبلغ", "شرح", "تاریخ"].map(esc).join(","));
   expenses.forEach((e, i) => {
     lines.push(
-      [i + 1, e.amount, e.description || "—", e.createdAt].map(esc).join(",")
+      [i + 1, e.amount, e.description || "—", shamsi(e.createdAt)]
+        .map(esc)
+        .join(",")
     );
   });
   lines.push("");
@@ -75,7 +105,7 @@ export function downloadReportCSV(payload) {
         p.amount,
         p.staffName || p.attendance?.staff?.name || "—",
         p.note || "—",
-        p.paidAt || p.createdAt,
+        shamsi(p.paidAt || p.createdAt),
       ]
         .map(esc)
         .join(",")
@@ -85,12 +115,21 @@ export function downloadReportCSV(payload) {
 
   /* ---------- Unpaid Lists ---------- */
   lines.push("### معاشات پرداخت‌نشده ###");
-  lines.push(["#", "نام لیست", "کل", "پرداخت‌شده", "باقی‌مانده", "تاریخ"].map(esc).join(","));
+  lines.push(
+    ["#", "نام لیست", "کل", "پرداخت‌شده", "باقی‌مانده", "تاریخ"].map(esc).join(",")
+  );
   unpaidLists.forEach((u, i) => {
     const total = Number(u.total || 0);
     const paid = Number(u.paid || 0);
     lines.push(
-      [i + 1, u.name || u.range || "—", total, paid, total - paid, u.createdAt]
+      [
+        i + 1,
+        u.name || u.range || "—",
+        total,
+        paid,
+        total - paid,
+        shamsi(u.createdAt),
+      ]
         .map(esc)
         .join(",")
     );
@@ -119,7 +158,8 @@ export function downloadReportCSV(payload) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `Financial_Report_${dateRange.from}_to_${dateRange.to}.csv`;
+  /* ✅ Shamsi filename */
+  link.download = `Financial_Report_${shamsiFileSafe(dateRange.from)}_to_${shamsiFileSafe(dateRange.to)}.csv`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
