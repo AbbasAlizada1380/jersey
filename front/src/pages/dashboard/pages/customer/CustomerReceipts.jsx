@@ -7,9 +7,12 @@ import {
   FaFilter,
   FaMoneyBillWave,
   FaPrint,
+  FaDownload,
 } from "react-icons/fa";
 import Pagination from "../../pagination/Pagination.jsx";
-import PrintBill from "./PrintBill.jsx";   // ✅ new import
+import PrintBill from "./PrintBill.jsx";
+import { downloadReceiptsReportPDF } from "../order/downloadReceiptsReportPDF.jsx"; // ← adjust path
+
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 const LIMIT = 10;
 
@@ -30,6 +33,30 @@ const formatDateTime = (d) => {
   }).format(new Date(d));
 };
 
+/* Columns definition for the PDF export */
+const PDF_COLUMNS = [
+  {
+    key: "id",
+    label: "#",
+    value: (r) => `#${r.id}`,
+  },
+  {
+    key: "amount",
+    label: "مبلغ (افغانی)",
+    value: (r) => r.amount,
+  },
+  {
+    key: "description",
+    label: "توضیحات",
+    value: (r) => r.description || "—",
+  },
+  {
+    key: "createdAt",
+    label: "تاریخ و زمان",
+    value: (r) => formatDateTime(r.createdAt),
+  },
+];
+
 export default function CustomerReceipts({
   customer,
   refreshKey = 0,
@@ -37,14 +64,17 @@ export default function CustomerReceipts({
 }) {
   const [receipts, setReceipts] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [totals, setTotals] = useState({ count: 0, totalAmount: 0 });
-  /* ✅ Print modal state */
-const [printReceipt, setPrintReceipt] = useState(null);
-const [printOpen, setPrintOpen] = useState(false);
+
+  /* Print modal state */
+  const [printReceipt, setPrintReceipt] = useState(null);
+  const [printOpen, setPrintOpen] = useState(false);
+
   /* filter */
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -95,6 +125,56 @@ const [printOpen, setPrintOpen] = useState(false);
     setTo("");
   };
 
+  /* ---------------- Download PDF ---------------- */
+  const handleDownload = async () => {
+    if (!customer?.id) return;
+
+    try {
+      setDownloading(true);
+
+      // Fetch ALL receipts for this customer (ignore pagination)
+      const params = {
+        customer: customer.id,
+        page: 1,
+        limit: 10000,
+      };
+      if (from) params.from = from;
+      if (to) params.to = to;
+
+      const res = await axios.get(`${BASE_URL}/receipts`, { params });
+      const allRows = res.data.receipts || [];
+
+      if (allRows.length === 0) {
+        alert("هیچ رسیدی برای دانلود وجود ندارد");
+        return;
+      }
+
+      const exportTotals = res.data.totals || {
+        count: allRows.length,
+        totalAmount: allRows.reduce(
+          (sum, r) => sum + Number(r.amount || 0),
+          0
+        ),
+      };
+
+      downloadReceiptsReportPDF({
+        rows: allRows,
+        columns: PDF_COLUMNS,
+        totals: exportTotals,
+        groupBy: "none",
+        filters: {
+          customer: customer.name || `#${customer.id}`,
+          from: from || null,
+          to: to || null,
+        },
+      });
+    } catch (err) {
+      alert("خطا در آماده‌سازی گزارش");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   if (!customer) return null;
 
   return (
@@ -103,17 +183,20 @@ const [printOpen, setPrintOpen] = useState(false);
         }`}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-primary/15 rounded-lg">
-            <FaReceipt className="text-primary text-sm" />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3.5 border-b border-gray-200 bg-gradient-to-l from-gray-50 to-white">
+        {/* Left: icon + title */}
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="p-2.5 bg-primary/15 rounded-xl shrink-0">
+            <FaReceipt className="text-primary text-base" />
           </div>
-          <div>
-            <h3 className="text-sm font-semibold text-gray-800">
+          <div className="min-w-0">
+            <h3 className="text-sm font-bold text-gray-900 truncate">
               رسیدهای پرداخت
             </h3>
-            <p className="text-[11px] text-gray-500">
-              {totalItems} رسید — مجموع{" "}
+            <p className="text-[11px] text-gray-500 mt-0.5 truncate">
+              <span className="font-medium text-gray-700">{totalItems}</span> رسید
+              <span className="mx-1 text-gray-300">•</span>
+              مجموع{" "}
               <span className="font-semibold text-emerald-700">
                 {formatCurrency(totals.totalAmount)}
               </span>
@@ -121,13 +204,44 @@ const [printOpen, setPrintOpen] = useState(false);
           </div>
         </div>
 
-        <button
-          onClick={() => setShowFilters((v) => !v)}
-          className="p-2 text-gray-600 hover:bg-gray-200 rounded-lg transition"
-          title="فیلتر تاریخ"
-        >
-          <FaFilter className="text-xs" />
-        </button>
+        {/* Right: actions */}
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={handleDownload}
+            disabled={downloading || totalItems === 0}
+            className="inline-flex items-center justify-center gap-2 h-10 px-4 text-sm font-medium
+                 bg-primary text-white rounded-xl shadow-sm
+                 hover:bg-primary/90 active:scale-[0.98]
+                 transition-all duration-150
+                 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+            title="دانلود گزارش PDF"
+          >
+            {downloading ? (
+              <>
+                <FaSpinner className="animate-spin text-xs" />
+                <span className="">در حال آماده‌سازی…</span>
+              </>
+            ) : (
+              <>
+                <FaDownload className="text-xs" />
+                <span className="">دانلود PDF</span>
+              </>
+            )}
+          </button>
+
+          <button
+            onClick={() => setShowFilters((v) => !v)}
+            className={`inline-flex items-center justify-center h-10 w-10 rounded-xl border transition-all duration-150 shadow-sm
+                  ${showFilters
+                ? "bg-primary/10 border-primary/30 text-primary"
+                : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50 active:scale-[0.98]"
+              }`}
+            title="فیلتر تاریخ"
+            aria-pressed={showFilters}
+          >
+            <FaFilter className="text-xs" />
+          </button>
+        </div>
       </div>
 
       {/* Filter bar */}
@@ -202,7 +316,9 @@ const [printOpen, setPrintOpen] = useState(false);
                 <th className="px-3 py-2 text-right text-xs font-semibold text-white uppercase">
                   تاریخ و زمان
                 </th>
-                <th className="px-3 py-2 text-center text-xs font-semibold text-gray-600 uppercase">عملیات</th>
+                <th className="px-3 py-2 text-center text-xs font-semibold text-white uppercase">
+                  عملیات
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
@@ -240,7 +356,7 @@ const [printOpen, setPrintOpen] = useState(false);
                     <div className="flex items-center justify-center gap-1">
                       <button
                         onClick={() => {
-                          setPrintReceipt(r);        // ✅ pass the receipt
+                          setPrintReceipt(r);
                           setPrintOpen(true);
                         }}
                         className="p-2 text-primary hover:bg-primary/10 rounded-lg transition"
@@ -257,8 +373,6 @@ const [printOpen, setPrintOpen] = useState(false);
         </div>
       )}
 
-      {/* Pagination */}
-      {totalPages > 1 && !loading && (
         <div className="border-t border-gray-200">
           <Pagination
             currentPage={page}
@@ -266,16 +380,17 @@ const [printOpen, setPrintOpen] = useState(false);
             onPageChange={(p) => fetchReceipts(p)}
           />
         </div>
-      )}
-<PrintBill
-  isOpen={printOpen}
-  onClose={() => {
-    setPrintOpen(false);
-    setPrintReceipt(null);
-  }}
-  receipt={printReceipt}
-  customer={customer}
-/>
+
+      {/* Print modal */}
+      <PrintBill
+        isOpen={printOpen}
+        onClose={() => {
+          setPrintOpen(false);
+          setPrintReceipt(null);
+        }}
+        receipt={printReceipt}
+        customer={customer}
+      />
     </div>
   );
 }

@@ -6,11 +6,12 @@ import {
   FaSpinner,
   FaFileInvoiceDollar,
   FaTimes,
-  FaEye,
   FaPrint,
 } from "react-icons/fa";
 import { downloadCustomerBillsPDF } from "./CustomrsBillPDF";
-import PrintBill from "./PrintBill";   // ✅ new import
+import PrintBill from "./PrintBill";
+import Pagination from "../../pagination/Pagination.jsx"; // ← adjust path if needed
+
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 const LIMIT = 10;
 
@@ -47,7 +48,7 @@ const formatDate = (d) => {
 
 export default function CustomerBillsFilter({ customer }) {
   /* ---------- Filters ---------- */
-  const [selectedStatuses, setSelectedStatuses] = useState([]); // array of keys
+  const [selectedStatuses, setSelectedStatuses] = useState([]);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
 
@@ -59,8 +60,11 @@ export default function CustomerBillsFilter({ customer }) {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [downloading, setDownloading] = useState(false);
-  const [printBill, setPrintBill] = useState(null); // the bill object to print
+
+  /* ---------- Print ---------- */
+  const [printBill, setPrintBill] = useState(null);
   const [printOpen, setPrintOpen] = useState(false);
+
   /* ---------- Summary of current page ---------- */
   const summary = bills.reduce(
     (acc, b) => {
@@ -103,8 +107,8 @@ export default function CustomerBillsFilter({ customer }) {
       } catch (err) {
         setError(
           err?.response?.data?.message ||
-          err.message ||
-          "خطا در دریافت بل‌ها"
+            err.message ||
+            "خطا در دریافت بل‌ها"
         );
         setBills([]);
       } finally {
@@ -133,10 +137,15 @@ export default function CustomerBillsFilter({ customer }) {
     setTo("");
   };
 
+  /* ---------- Print ---------- */
+  const handlePrint = (bill, e) => {
+    e?.stopPropagation();
+    setPrintBill(bill);
+    setPrintOpen(true);
+  };
+
   /* ---------- Download ---------- */
   const handleDownload = async () => {
-    // If current page has all data we need, use it.
-    // Otherwise, fetch all matching bills (limit very high) first.
     try {
       setDownloading(true);
 
@@ -144,7 +153,7 @@ export default function CustomerBillsFilter({ customer }) {
         customer: customer.id,
         customerType: "permanent",
         page: 1,
-        limit: 10000, // fetch all matching
+        limit: 10000,
       };
       if (selectedStatuses.length > 0) {
         params.status = selectedStatuses.join(",");
@@ -211,10 +220,11 @@ export default function CustomerBillsFilter({ customer }) {
         <button
           onClick={handleDownload}
           disabled={downloading || bills.length === 0}
-          className={`px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition ${downloading || bills.length === 0
-            ? "bg-white/20 text-white/60 cursor-not-allowed"
-            : "bg-white text-primary hover:bg-white/90"
-            }`}
+          className={`px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition ${
+            downloading || bills.length === 0
+              ? "bg-white/20 text-white/60 cursor-not-allowed"
+              : "bg-white text-primary hover:bg-white/90"
+          }`}
           title="دانلود گزارش PDF"
         >
           {downloading ? (
@@ -247,10 +257,11 @@ export default function CustomerBillsFilter({ customer }) {
                 key={opt.key}
                 type="button"
                 onClick={() => toggleStatus(opt.key)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${active
-                  ? "bg-primary text-white border-primary"
-                  : `bg-white ${opt.cls} border-gray-300 hover:border-primary`
-                  }`}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${
+                  active
+                    ? "bg-primary text-white border-primary"
+                    : `bg-white ${opt.cls} border-gray-300 hover:border-primary`
+                }`}
               >
                 {opt.label}
               </button>
@@ -307,15 +318,17 @@ export default function CustomerBillsFilter({ customer }) {
             </p>
           </div>
           <div
-            className={`rounded-xl border p-3 ${summary.remaining > 0
-              ? "border-red-200 bg-red-50"
-              : "border-green-200 bg-green-50"
-              }`}
+            className={`rounded-xl border p-3 ${
+              summary.remaining > 0
+                ? "border-red-200 bg-red-50"
+                : "border-green-200 bg-green-50"
+            }`}
           >
             <p className="text-xs text-gray-500 mb-1">باقی مانده</p>
             <p
-              className={`text-base font-bold ${summary.remaining > 0 ? "text-red-600" : "text-green-600"
-                }`}
+              className={`text-base font-bold ${
+                summary.remaining > 0 ? "text-red-600" : "text-green-600"
+              }`}
             >
               {formatCurrency(summary.remaining)}
             </p>
@@ -367,6 +380,9 @@ export default function CustomerBillsFilter({ customer }) {
                   <th className="px-3 py-2 text-right text-xs font-semibold text-gray-600 uppercase">
                     تاریخ
                   </th>
+                  <th className="px-3 py-2 text-center text-xs font-semibold text-gray-600 uppercase">
+                    عملیات
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-100">
@@ -386,8 +402,11 @@ export default function CustomerBillsFilter({ customer }) {
                         {formatCurrency(paid)}
                       </td>
                       <td
-                        className={`px-3 py-3 text-sm font-semibold ${Number(b.remaind) > 0 ? "text-red-600" : "text-green-600"
-                          }`}
+                        className={`px-3 py-3 text-sm font-semibold ${
+                          Number(b.remaind) > 0
+                            ? "text-red-600"
+                            : "text-green-600"
+                        }`}
                       >
                         {formatCurrency(b.remaind)}
                       </td>
@@ -395,9 +414,15 @@ export default function CustomerBillsFilter({ customer }) {
                       <td className="px-3 py-3 text-sm text-gray-600">
                         {formatDate(b.createdAt)}
                       </td>
-
-                      {/* ✅ Action column */}
-                      
+                      <td className="px-3 py-3 text-center">
+                        <button
+                          onClick={(e) => handlePrint(b, e)}
+                          className="p-2 text-primary hover:bg-primary/10 rounded-lg transition"
+                          title="چاپ بل"
+                        >
+                          <FaPrint size={13} />
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}
@@ -406,35 +431,16 @@ export default function CustomerBillsFilter({ customer }) {
           </div>
         )}
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between pt-3">
-            <button
-              onClick={() => fetchFiltered(page - 1)}
-              disabled={page <= 1}
-              className={`px-3 py-1.5 rounded-lg text-sm transition ${page <= 1
-                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                : "bg-primary/10 text-primary hover:bg-primary/20"
-                }`}
-            >
-              قبلی
-            </button>
-            <span className="text-sm text-gray-600">
-              صفحه {page} از {totalPages}
-            </span>
-            <button
-              onClick={() => fetchFiltered(page + 1)}
-              disabled={page >= totalPages}
-              className={`px-3 py-1.5 rounded-lg text-sm transition ${page >= totalPages
-                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                : "bg-primary/10 text-primary hover:bg-primary/20"
-                }`}
-            >
-              بعدی
-            </button>
+          <div className="border-t border-gray-200 mt-3">
+            <Pagination
+              currentPage={page}
+              totalPages={totalPages}
+              onPageChange={fetchFiltered}
+            />
           </div>
-        )}
       </div>
+
+      {/* ---------- Print modal ---------- */}
       <PrintBill
         isOpen={printOpen}
         onClose={() => {
@@ -442,6 +448,7 @@ export default function CustomerBillsFilter({ customer }) {
           setPrintBill(null);
         }}
         bill={printBill}
+        customer={customer}
       />
     </div>
   );

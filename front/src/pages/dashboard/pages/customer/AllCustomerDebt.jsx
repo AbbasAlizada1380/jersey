@@ -428,34 +428,60 @@ export default function AllCustomerDebt({ refreshKey = 0, onViewBills }) {
 
       {/* Grand summary tiles */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+        {/* 1. Debtor count */}
         <div className="rounded-2xl border border-gray-200 bg-white p-4">
           <p className="text-xs text-gray-500 mb-1">تعداد مشتری بدهکار</p>
           <p className="text-xl font-bold text-gray-900">
             {grandTotals.customers}
           </p>
           <p className="text-[11px] text-gray-500 mt-1">
-            {grandTotals.bills} بل در مجموع
+            {permanent.length} دائمی • {temporary.length} موقت
           </p>
         </div>
-        <div className="rounded-2xl border border-gray-200 bg-white p-4">
-          <p className="text-xs text-gray-500 mb-1">مجموع کل</p>
-          <p className="text-xl font-bold text-gray-900">
-            {formatCurrency(grandTotals.amount)}
+
+        {/* 2. Permanent debt */}
+        <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4">
+          <p className="text-xs text-blue-700 mb-1 flex items-center gap-1">
+            <FaUsers className="text-[10px]" />
+            بدهی مشتریان دائمی
+          </p>
+          <p className="text-xl font-bold text-blue-800">
+            {formatCurrency(
+              permanent.reduce((s, r) => s + Number(r.totalRemaining || 0), 0)
+            )}
+          </p>
+          <p className="text-[11px] text-blue-600 mt-1">
+            {permanent.length} مشتری
           </p>
         </div>
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-          <p className="text-xs text-emerald-600 mb-1">پرداخت شده</p>
-          <p className="text-xl font-bold text-emerald-700">
-            {formatCurrency(grandTotals.paid)}
+
+        {/* 3. Temporary debt */}
+        <div className="rounded-2xl border border-yellow-200 bg-yellow-50 p-4">
+          <p className="text-xs text-yellow-700 mb-1 flex items-center gap-1">
+            <FaUserClock className="text-[10px]" />
+            بدهی مشتریان موقت
+          </p>
+          <p className="text-xl font-bold text-yellow-800">
+            {formatCurrency(
+              temporary.reduce((s, r) => s + Number(r.totalRemaining || 0), 0)
+            )}
+          </p>
+          <p className="text-[11px] text-yellow-600 mt-1">
+            {temporary.length} مشتری
           </p>
         </div>
+
+        {/* 4. Total */}
         <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
           <p className="text-xs text-red-600 mb-1 flex items-center gap-1">
             <FaExclamationTriangle className="text-[10px]" />
-            باقی مانده
+            مجموع کل بدهی
           </p>
           <p className="text-xl font-bold text-red-700">
             {formatCurrency(grandTotals.remaining)}
+          </p>
+          <p className="text-[11px] text-red-600 mt-1">
+            {grandTotals.bills} بل
           </p>
         </div>
       </div>

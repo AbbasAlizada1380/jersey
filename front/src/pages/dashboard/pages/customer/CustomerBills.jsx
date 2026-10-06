@@ -14,6 +14,8 @@ import {
   FaCheckCircle,
 } from "react-icons/fa";
 import CustomerReceipts from "./CustomerReceipts";
+import Pagination from "../../pagination/Pagination.jsx"; // ← adjust path if needed
+
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 const LIMIT = 10;
 
@@ -152,15 +154,17 @@ function BillDetail({ bill, loading, onClose }) {
             </p>
           </div>
           <div
-            className={`rounded-xl border p-3 ${Number(bill.remaind) > 0
-              ? "border-red-200 bg-red-50"
-              : "border-green-200 bg-green-50"
-              }`}
+            className={`rounded-xl border p-3 ${
+              Number(bill.remaind) > 0
+                ? "border-red-200 bg-red-50"
+                : "border-green-200 bg-green-50"
+            }`}
           >
             <p className="text-[11px] text-gray-500 mb-1">باقی مانده</p>
             <p
-              className={`text-sm font-bold ${Number(bill.remaind) > 0 ? "text-red-600" : "text-green-600"
-                }`}
+              className={`text-sm font-bold ${
+                Number(bill.remaind) > 0 ? "text-red-600" : "text-green-600"
+              }`}
             >
               {formatCurrency(bill.remaind)}
             </p>
@@ -200,32 +204,18 @@ function BillDetail({ bill, loading, onClose }) {
               <table className="w-full text-xs">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="p-2 text-right font-medium text-gray-600">
-                      سایز
-                    </th>
-                    <th className="p-2 text-right font-medium text-gray-600">
-                      تعداد
-                    </th>
-                    <th className="p-2 text-right font-medium text-gray-600">
-                      شماره
-                    </th>
-                    <th className="p-2 text-right font-medium text-gray-600">
-                      نوع
-                    </th>
-                    <th className="p-2 text-right font-medium text-gray-600">
-                      قیمت
-                    </th>
-                    <th className="p-2 text-right font-medium text-gray-600">
-                      جمع
-                    </th>
+                    <th className="p-2 text-right font-medium text-gray-600">سایز</th>
+                    <th className="p-2 text-right font-medium text-gray-600">تعداد</th>
+                    <th className="p-2 text-right font-medium text-gray-600">شماره</th>
+                    <th className="p-2 text-right font-medium text-gray-600">نوع</th>
+                    <th className="p-2 text-right font-medium text-gray-600">قیمت</th>
+                    <th className="p-2 text-right font-medium text-gray-600">جمع</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {bill.orders.map((o) => (
                     <tr key={o.id} className="hover:bg-gray-50">
-                      <td className="p-2 text-gray-800 font-medium">
-                        {o.size}
-                      </td>
+                      <td className="p-2 text-gray-800 font-medium">{o.size}</td>
                       <td className="p-2 text-gray-700">{o.quantity}</td>
                       <td className="p-2 text-gray-700">
                         {o.athleteNumber || "—"}
@@ -287,7 +277,6 @@ export default function CustomerBills({ customer, onClose, onPaid }) {
     { total: 0, paid: 0, remaining: 0 }
   );
 
-  /* Only permanent customers can use the pay endpoint */
   const canPay =
     customer?.id && summary.remaining > 0 && bills.length > 0;
 
@@ -316,8 +305,8 @@ export default function CustomerBills({ customer, onClose, onPaid }) {
     } catch (err) {
       setError(
         err?.response?.data?.message ||
-        err.message ||
-        "خطا در دریافت بل‌های مشتری"
+          err.message ||
+          "خطا در دریافت بل‌های مشتری"
       );
       setBills([]);
     } finally {
@@ -382,15 +371,14 @@ export default function CustomerBills({ customer, onClose, onPaid }) {
       const allocs = Array.isArray(data.allocations) ? data.allocations : [];
 
       setSuccessMessage(
-        `پرداخت ${formatCurrency(paidAmount)} ثبت شد${allocs.length > 0 ? ` (${allocs.length} بل)` : ""
+        `پرداخت ${formatCurrency(paidAmount)} ثبت شد${
+          allocs.length > 0 ? ` (${allocs.length} بل)` : ""
         }`
       );
       setReceiptsKey((k) => k + 1);
-      /* Reset form */
       setPayAmount("");
       setPayDescription("");
 
-      /* Refresh the bill list + selected detail */
       await fetchBills(1);
       if (selectedBill) {
         try {
@@ -404,13 +392,12 @@ export default function CustomerBills({ customer, onClose, onPaid }) {
       }
 
       onPaid?.(data);
-
       setTimeout(() => setSuccessMessage(null), 3500);
     } catch (err) {
       setError(
         err?.response?.data?.message ||
-        err.message ||
-        "خطا در ثبت پرداخت"
+          err.message ||
+          "خطا در ثبت پرداخت"
       );
     } finally {
       setSubmitting(false);
@@ -494,7 +481,7 @@ export default function CustomerBills({ customer, onClose, onPaid }) {
           </div>
         )}
 
-        {/* ---------- Payment bar (only when there's debt) ---------- */}
+        {/* ---------- Payment bar ---------- */}
         {canPay && (
           <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4">
             <div className="flex items-center gap-2 mb-3">
@@ -513,7 +500,6 @@ export default function CustomerBills({ customer, onClose, onPaid }) {
 
             <form onSubmit={handlePay} className="space-y-3">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {/* Amount */}
                 <div className="md:col-span-1">
                   <label className="block text-xs font-medium text-gray-700 mb-1">
                     <span className="text-red-500">*</span> مبلغ
@@ -529,7 +515,6 @@ export default function CustomerBills({ customer, onClose, onPaid }) {
                     disabled={submitting}
                     required
                   />
-                  {/* Quick buttons */}
                   <div className="flex gap-2 mt-2">
                     <button
                       type="button"
@@ -552,7 +537,6 @@ export default function CustomerBills({ customer, onClose, onPaid }) {
                   </div>
                 </div>
 
-                {/* Description */}
                 <div className="md:col-span-2">
                   <label className="block text-xs font-medium text-gray-700 mb-1">
                     توضیحات (اختیاری)
@@ -568,16 +552,16 @@ export default function CustomerBills({ customer, onClose, onPaid }) {
                 </div>
               </div>
 
-              {/* Live preview */}
               {numericPayAmount > 0 && (
                 <div className="rounded-xl bg-white border border-gray-200 p-3 text-xs flex flex-wrap items-center justify-between gap-2">
                   <span className="text-gray-600">
                     باقی‌مانده پس از پرداخت:
                     <span
-                      className={`font-semibold ml-1 ${remainingAfter > 0
-                        ? "text-red-600"
-                        : "text-green-600"
-                        }`}
+                      className={`font-semibold ml-1 ${
+                        remainingAfter > 0
+                          ? "text-red-600"
+                          : "text-green-600"
+                      }`}
                     >
                       {formatCurrency(remainingAfter)}
                     </span>
@@ -593,15 +577,15 @@ export default function CustomerBills({ customer, onClose, onPaid }) {
                 </div>
               )}
 
-              {/* Submit */}
               <div className="flex justify-end">
                 <button
                   type="submit"
                   disabled={submitting || numericPayAmount <= 0}
-                  className={`px-5 py-2.5 rounded-xl font-medium shadow-sm transition flex items-center gap-2 ${submitting || numericPayAmount <= 0
-                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                    : "bg-gradient-to-r from-primary to-primary/80 hover:opacity-90 text-white"
-                    }`}
+                  className={`px-5 py-2.5 rounded-xl font-medium shadow-sm transition flex items-center gap-2 ${
+                    submitting || numericPayAmount <= 0
+                      ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                      : "bg-gradient-to-r from-primary to-primary/80 hover:opacity-90 text-white"
+                  }`}
                 >
                   {submitting ? (
                     <>
@@ -636,24 +620,27 @@ export default function CustomerBills({ customer, onClose, onPaid }) {
               </p>
             </div>
             <div
-              className={`rounded-xl border p-3 ${summary.remaining > 0
-                ? "border-red-200 bg-red-50"
-                : "border-green-200 bg-green-50"
-                }`}
+              className={`rounded-xl border p-3 ${
+                summary.remaining > 0
+                  ? "border-red-200 bg-red-50"
+                  : "border-green-200 bg-green-50"
+              }`}
             >
               <p className="text-xs text-gray-500 mb-1">باقی مانده</p>
               <p
-                className={`text-lg font-bold ${summary.remaining > 0
-                  ? "text-red-600"
-                  : "text-green-600"
-                  }`}
+                className={`text-lg font-bold ${
+                  summary.remaining > 0
+                    ? "text-red-600"
+                    : "text-green-600"
+                }`}
               >
                 {formatCurrency(summary.remaining)}
               </p>
             </div>
           </div>
         )}
-        {/* ---------- Receipts panel ---------- */}
+
+        {/* Receipts panel */}
         {customer?.id && (
           <CustomerReceipts
             customer={customer}
@@ -661,10 +648,12 @@ export default function CustomerBills({ customer, onClose, onPaid }) {
             compact
           />
         )}
+
         {/* Two-column layout */}
         <div
-          className={`grid gap-4 ${hasSelection ? "lg:grid-cols-5" : "grid-cols-1"
-            }`}
+          className={`grid gap-4 ${
+            hasSelection ? "lg:grid-cols-5" : "grid-cols-1"
+          }`}
         >
           <div className={hasSelection ? "lg:col-span-3" : ""}>
             {loading ? (
@@ -716,10 +705,11 @@ export default function CustomerBills({ customer, onClose, onPaid }) {
                         <tr
                           key={b.id}
                           onClick={() => openBillDetail(b.id)}
-                          className={`cursor-pointer transition ${isSelected
-                            ? "bg-primary/10 hover:bg-primary/15"
-                            : "hover:bg-gray-50"
-                            }`}
+                          className={`cursor-pointer transition ${
+                            isSelected
+                              ? "bg-primary/10 hover:bg-primary/15"
+                              : "hover:bg-gray-50"
+                          }`}
                         >
                           <td className="px-3 py-3 text-sm font-semibold text-primary">
                             #{b.id}
@@ -728,10 +718,11 @@ export default function CustomerBills({ customer, onClose, onPaid }) {
                             {formatCurrency(b.total)}
                           </td>
                           <td
-                            className={`px-3 py-3 text-sm font-semibold ${Number(b.remaind) > 0
-                              ? "text-red-600"
-                              : "text-green-600"
-                              }`}
+                            className={`px-3 py-3 text-sm font-semibold ${
+                              Number(b.remaind) > 0
+                                ? "text-red-600"
+                                : "text-green-600"
+                            }`}
                           >
                             {formatCurrency(b.remaind)}
                           </td>
@@ -761,33 +752,13 @@ export default function CustomerBills({ customer, onClose, onPaid }) {
               </div>
             )}
 
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between pt-3">
-                <button
-                  onClick={() => fetchBills(page - 1)}
-                  disabled={page <= 1}
-                  className={`px-3 py-1.5 rounded-lg text-sm transition ${page <= 1
-                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                    : "bg-primary/10 text-primary hover:bg-primary/20"
-                    }`}
-                >
-                  قبلی
-                </button>
-                <span className="text-sm text-gray-600">
-                  صفحه {page} از {totalPages}
-                </span>
-                <button
-                  onClick={() => fetchBills(page + 1)}
-                  disabled={page >= totalPages}
-                  className={`px-3 py-1.5 rounded-lg text-sm transition ${page >= totalPages
-                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                    : "bg-primary/10 text-primary hover:bg-primary/20"
-                    }`}
-                >
-                  بعدی
-                </button>
+              <div className="border-t border-gray-200 mt-3">
+                <Pagination
+                  currentPage={page}
+                  totalPages={totalPages}
+                  onPageChange={fetchBills}
+                />
               </div>
-            )}
           </div>
 
           <div className={hasSelection ? "lg:col-span-2" : "hidden"}>

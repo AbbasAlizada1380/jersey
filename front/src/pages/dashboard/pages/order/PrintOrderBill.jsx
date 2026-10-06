@@ -27,8 +27,8 @@ const PrintOrderBill = ({ isOpen, onClose, orderId, autoPrint }) => {
         if (!cancelled) {
           setError(
             err?.response?.data?.message ||
-              err.message ||
-              "خطا در دریافت اطلاعات بل"
+            err.message ||
+            "خطا در دریافت اطلاعات بل"
           );
         }
       } finally {
@@ -88,28 +88,28 @@ const PrintOrderBill = ({ isOpen, onClose, orderId, autoPrint }) => {
 
   const items = Array.isArray(order.orders)
     ? order.orders.map((o) => {
-        const price = Number(o.price || 0);
-        const qty = Number(o.quantity || 0);
-        const lineTotal =
-          Number(o.total) > 0 ? Number(o.total) : price * qty;
+      const price = Number(o.price || 0);
+      const qty = Number(o.quantity || 0);
+      const lineTotal =
+        Number(o.total) > 0 ? Number(o.total) : price * qty;
 
-        const description = [
-          o.jerseyType,
-          o.size ? `سایز ${o.size}` : null,
-          o.logo ? `لوگو: ${o.logo}` : null,
-          o.athleteNumber ? `شماره: ${o.athleteNumber}` : null,
-          o.codeNumber ? `کد: ${o.codeNumber}` : null,
-        ]
-          .filter(Boolean)
-          .join(" | ");
+      const description = [
+        o.jerseyType,
+        o.size ? `سایز ${o.size}` : null,
+        o.logo ? `لوگو: ${o.logo}` : null,
+        o.athleteNumber ? `شماره: ${o.athleteNumber}` : null,
+        o.codeNumber ? `کد: ${o.codeNumber}` : null,
+      ]
+        .filter(Boolean)
+        .join(" | ");
 
-        return {
-          name: description || "—",
-          quantity: qty,
-          price_per_unit: price,
-          money: lineTotal,
-        };
-      })
+      return {
+        name: description || "—",
+        quantity: qty,
+        price_per_unit: price,
+        money: lineTotal,
+      };
+    })
     : [];
 
   const total = items.reduce((sum, d) => sum + Number(d.money || 0), 0);
