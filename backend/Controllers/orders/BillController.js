@@ -1,7 +1,6 @@
 import { Bill, Order, Customer, Receipt } from "../../Models/index.js";
-import { Op, fn, col } from "sequelize";
-
-
+import {sequelize} from "../../Models/index.js";        // ← NOT the Sequelize instance
+import { Op, fn, col, where as sequelizeWhere, cast, col as sequelizeCol } from "sequelize";
 export const payPermanentCustomer = async (req, res) => {
   const transaction = await Bill.sequelize.transaction();
 
@@ -270,7 +269,32 @@ export const getTemporaryDebtors = async (req, res) => {
       customerType: "temporary",
       status: { [Op.in]: ["unpaid", "partial"] },
     };
+   if (req.query.q && String(req.query.q).trim()) {
+      const q = String(req.query.q).trim();
+      const numeric = Number(q);
+      const searchConditions = [
+        { name: { [Op.like]: `%${q}%` } },
+        { phoneNumber: { [Op.like]: `%${q}%` } },
+      ];
+      if (Number.isFinite(numeric) && numeric > 0) {
+        searchConditions.push({ id: numeric });
+      }
+      where[Op.and] = [{ [Op.or]: searchConditions }];
+    }
 
+    if (req.query.from || req.query.to) {
+      where.createdAt = {};
+      if (req.query.from) {
+        const f = new Date(req.query.from);
+        f.setHours(0, 0, 0, 0);
+        where.createdAt[Op.gte] = f;
+      }
+      if (req.query.to) {
+        const t = new Date(req.query.to);
+        t.setHours(23, 59, 59, 999);
+        where.createdAt[Op.lte] = t;
+      }
+    }
     if (req.query.from || req.query.to) {
       where.createdAt = {};
       if (req.query.from) {
@@ -419,8 +443,18 @@ export const createBill = async (req, res) => {
   }
 };
 
+
 /* =========================================================
-   Get Bills (paginated + filters)
+   Get Bills — paginated + filters + search
+   
+   Query params:
+     page         - default 1
+     limit        - default 10
+     customerType - "permanent" | "temporary"
+     customer     - customer id
+     status       - comma-separated: "unpaid,partial"
+     q            - search across name, phone, id
+     from / to    - date range (YYYY-MM-DD)
    ========================================================= */
 export const getBills = async (req, res) => {
   try {
@@ -438,9 +472,49 @@ export const getBills = async (req, res) => {
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean);
-      where.status = statuses.length === 1 ? statuses[0] : { [Op.in]: statuses };
+      where.status =
+        statuses.length === 1 ? statuses[0] : { [Op.in]: statuses };
     }
 
+    /* =========================================================
+       ✅ SEARCH — name, phoneNumber, and bill id
+       
+       Rules:
+         - Match any bill whose name OR phoneNumber contains `q` (LIKE %q%)
+         - ALSO match if `q` is numeric → include exact bill id
+         - ALSO match if `q` starts with "#" → strip and match id
+    ========================================================= */
+    if (req.query.q && String(req.query.q).trim()) {
+      const raw = String(req.query.q).trim();
+      const numericOnly = raw.replace(/^#/, ""); // allow "#42"
+      const numeric = Number(numericOnly);
+
+      const searchConditions = [
+        { name: { [Op.like]: `%${raw}%` } },
+        { phoneNumber: { [Op.like]: `%${raw}%` } },
+      ];
+
+      /* ✅ If q is numeric (or "#42"), also match bill id */
+      if (Number.isFinite(numeric) && numeric > 0) {
+        searchConditions.push({ id: numeric });
+      }
+
+      /* ✅ If q contains only digits, also match id cast to string */
+if (/^\d+$/.test(numericOnly)) {
+  searchConditions.push(
+    sequelizeWhere(cast(sequelizeCol("Bill.id"), "CHAR"), {
+      [Op.like]: `%${numericOnly}%`,
+    })
+  );
+}
+
+      where[Op.and] = [
+        ...(where[Op.and] || []),
+        { [Op.or]: searchConditions },
+      ];
+    }
+
+    /* ✅ Date range */
     if (req.query.from || req.query.to) {
       where.createdAt = {};
       if (req.query.from) {
@@ -471,6 +545,7 @@ export const getBills = async (req, res) => {
         perPage: limit,
       },
       filters: {
+        q: req.query.q || null,
         status: req.query.status || null,
         from: req.query.from || null,
         to: req.query.to || null,
@@ -764,23 +839,27 @@ export const searchBills = async (req, res) => {
     }
 
     const search = q.trim();
+    const numeric = Number(search);
+
+    const searchConditions = [
+      { name: { [Op.like]: `%${search}%` } },
+      { phoneNumber: { [Op.like]: `%${search}%` } },
+    ];
+    if (Number.isFinite(numeric) && numeric > 0) {
+      searchConditions.push({ id: numeric });
+    }
 
     const bills = await Bill.findAll({
-      where: {
-        [Op.or]: [
-          { name: { [Op.like]: `%${search}%` } },
-          { phoneNumber: { [Op.like]: `%${search}%` } },
-        ],
-      },
+      where: { [Op.or]: searchConditions },
       order: [["createdAt", "DESC"]],
       include: [{ model: Order, as: "orders" }],
     });
 
-    if (!bills.length) {
-      return res.status(404).json({ message: "هیچ نتیجه‌ای یافت نشد" });
-    }
-
-    res.json(bills);
+    res.json({
+      bills,
+      count: bills.length,
+      query: search,
+    });
   } catch (error) {
     console.error("searchBills error:", error);
     res.status(500).json({

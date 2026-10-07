@@ -1,5 +1,7 @@
+// src/components/staff/StaffManager.jsx
 import { useEffect, useState } from "react";
 import axios from "axios";
+import moment from "moment-jalaali";
 import {
   FaEdit,
   FaTrash,
@@ -7,13 +9,26 @@ import {
   FaCheckCircle,
   FaBan,
   FaPlus,
-  FaTimes
+  FaTimes,
 } from "react-icons/fa";
 import { useSelector } from "react-redux";
 import AddStaff from "./AddStaff";
 import Customers from "../customer/Customers.jsx";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
+
+/* ✅ Load Persian locale once */
+moment.loadPersian({ usePersianDigits: false, dialect: "persian-modern" });
+
+/* ✅ Shamsi date formatter */
+const formatShamsi = (d) => {
+  if (!d) return "—";
+  try {
+    return moment(d).format("jYYYY/jMM/jDD");
+  } catch {
+    return "—";
+  }
+};
 
 const StaffManager = () => {
   const [staffs, setStaffs] = useState([]);
@@ -323,12 +338,9 @@ const StaffManager = () => {
                         </button>
                       </td>
 
+                      {/* ✅ Shamsi date */}
                       <td className="p-3 text-gray-500 text-sm">
-                        {staff.createdAt
-                          ? new Date(staff.createdAt).toLocaleDateString(
-                              "en-US"
-                            )
-                          : "—"}
+                        {formatShamsi(staff.createdAt)}
                       </td>
 
                       {/* Actions */}

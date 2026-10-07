@@ -107,7 +107,7 @@ export default function ValetsPage({ refreshKey = 0, onChanged }) {
   const [filterHolder, setFilterHolder] = useState("");
   const [filterType, setFilterType] = useState("");
   const [filterSource, setFilterSource] = useState("");
-  /* ✅ from / to are JS Date objects now */
+  /* ✅ from / to are JS Date objects */
   const [from, setFrom] = useState(null);
   const [to, setTo] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
@@ -151,7 +151,6 @@ export default function ValetsPage({ refreshKey = 0, onChanged }) {
         if (filterHolder) params.holder = filterHolder;
         if (filterType) params.type = filterType;
         if (filterSource) params.source = filterSource;
-        /* ✅ Convert Date → ISO for API */
         if (from) params.from = toISODate(from);
         if (to) params.to = toISODate(to);
 
@@ -812,11 +811,211 @@ export default function ValetsPage({ refreshKey = 0, onChanged }) {
         )}
       </div>
 
-      {/* Add / Edit modal (unchanged from before) */}
+      {/* Add / Edit modal */}
       {showForm && (
         <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm flex items-start justify-center overflow-y-auto p-4 md:p-8">
           <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
-            {/* ...modal content unchanged... */}
+            <div className="bg-gradient-to-r from-primary to-primary/80 text-white p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/20 rounded-full">
+                  <FaExchangeAlt className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold">
+                    {editingId ? "ویرایش تراکنش" : "افزودن تراکنش"}
+                  </h3>
+                  <p className="text-xs text-white/80">
+                    {editingId
+                      ? `ویرایش تراکنش #${editingId}`
+                      : "ثبت یک واریز یا برداشت جدید"}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={closeForm}
+                className="p-2 hover:bg-white/20 rounded-lg transition"
+                title="بستن"
+              >
+                <FaTimes />
+              </button>
+            </div>
+
+            <div className="p-6">
+              {formError && (
+                <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {formError}
+                </div>
+              )}
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Type */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <span className="text-red-500">*</span> نوع تراکنش
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setForm({ ...form, type: "deposit", source: "" })
+                      }
+                      className={`flex-1 px-3 py-2.5 rounded-xl font-medium transition flex items-center justify-center gap-2 ${
+                        form.type === "deposit"
+                          ? "bg-emerald-600 text-white shadow-sm"
+                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      }`}
+                      disabled={submitting}
+                    >
+                      <FaArrowDown />
+                      واریز
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, type: "withdraw" })}
+                      className={`flex-1 px-3 py-2.5 rounded-xl font-medium transition flex items-center justify-center gap-2 ${
+                        form.type === "withdraw"
+                          ? "bg-red-600 text-white shadow-sm"
+                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      }`}
+                      disabled={submitting}
+                    >
+                      <FaArrowUp />
+                      برداشت
+                    </button>
+                  </div>
+                </div>
+
+                {/* Source — only for withdraw */}
+                {form.type === "withdraw" && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <span className="text-red-500">*</span> منبع برداشت
+                    </label>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, source: "valet" })}
+                        className={`flex-1 px-3 py-2.5 rounded-xl font-medium transition ${
+                          form.source === "valet"
+                            ? "bg-primary text-white shadow-sm"
+                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        }`}
+                        disabled={submitting}
+                      >
+                        والټ (شخصی)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setForm({ ...form, source: "business" })
+                        }
+                        className={`flex-1 px-3 py-2.5 rounded-xl font-medium transition ${
+                          form.source === "business"
+                            ? "bg-primary text-white shadow-sm"
+                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        }`}
+                        disabled={submitting}
+                      >
+                        کسب‌وکار
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Holder */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <span className="text-red-500">*</span> حامل
+                  </label>
+                  <select
+                    value={form.holder}
+                    onChange={(e) =>
+                      setForm({ ...form, holder: e.target.value })
+                    }
+                    className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm bg-white focus:ring-2 focus:ring-primary focus:border-primary"
+                    disabled={submitting}
+                    required
+                  >
+                    <option value="">انتخاب حامل...</option>
+                    {holders.map((h) => (
+                      <option key={h.id} value={h.id}>
+                        {h.fullName} — {h.NIC}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Amount */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <span className="text-red-500">*</span> مبلغ (افغانی)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={form.amount}
+                    onChange={(e) =>
+                      setForm({ ...form, amount: e.target.value })
+                    }
+                    placeholder="۰"
+                    className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm font-mono focus:ring-2 focus:ring-primary focus:border-primary"
+                    disabled={submitting}
+                    required
+                  />
+                </div>
+
+                {/* Description */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    توضیحات (اختیاری)
+                  </label>
+                  <textarea
+                    value={form.description}
+                    onChange={(e) =>
+                      setForm({ ...form, description: e.target.value })
+                    }
+                    rows={2}
+                    placeholder="مثال: پرداخت قسط اول"
+                    className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary focus:border-primary resize-none"
+                    disabled={submitting}
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3 pt-3 border-t border-gray-200">
+                  <button
+                    type="button"
+                    onClick={closeForm}
+                    disabled={submitting}
+                    className="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition font-medium flex items-center gap-2"
+                  >
+                    <FaTimes />
+                    لغو
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className={`px-5 py-2.5 rounded-xl font-medium shadow-md transition flex items-center gap-2 ${
+                      submitting
+                        ? "bg-gray-400 cursor-not-allowed text-white"
+                        : "bg-gradient-to-r from-primary to-primary/80 hover:opacity-90 text-white"
+                    }`}
+                  >
+                    {submitting ? (
+                      <>
+                        <FaSpinner className="animate-spin h-4 w-4" />
+                        در حال ذخیره...
+                      </>
+                    ) : (
+                      <>
+                        <FaCheckCircle />
+                        {editingId ? "ذخیره تغییرات" : "ثبت تراکنش"}
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}

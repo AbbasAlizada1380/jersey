@@ -5,7 +5,7 @@ import {
   FaPlus,
 } from "react-icons/fa";
 import AddBill from "./AddBill";
-import BillsTable from "./BillsTable";
+import BillsTable from "./bills/BillsTable";
 import TemporaryAccounts from "../customer/TemporaryAccounts";
 
 export default function BillsPage() {
@@ -69,21 +69,18 @@ export default function BillsPage() {
           {/* All bills tab */}
           <button
             onClick={() => setActiveTab("bills")}
-            className={`group flex-1 flex items-center justify-center gap-3 px-5 py-3 rounded-xl font-medium transition-all ${
-              activeTab === "bills"
+            className={`group flex-1 flex items-center justify-center gap-3 px-5 py-3 rounded-xl font-medium transition-all ${activeTab === "bills"
                 ? "bg-gradient-to-r from-primary to-primary/80 text-white shadow-sm"
                 : "text-gray-600 bg-gray-50 hover:bg-gray-100 border border-gray-200"
-            }`}
+              }`}
           >
             <div
-              className={`p-2 rounded-lg ${
-                activeTab === "bills" ? "bg-white/20" : "bg-primary/10"
-              }`}
+              className={`p-2 rounded-lg ${activeTab === "bills" ? "bg-white/20" : "bg-primary/10"
+                }`}
             >
               <FaFileInvoiceDollar
-                className={`text-sm ${
-                  activeTab === "bills" ? "text-white" : "text-primary"
-                }`}
+                className={`text-sm ${activeTab === "bills" ? "text-white" : "text-primary"
+                  }`}
               />
             </div>
             <span>همه بل‌ها</span>
@@ -92,21 +89,18 @@ export default function BillsPage() {
           {/* Temporary customer accounts tab */}
           <button
             onClick={() => setActiveTab("temporary")}
-            className={`group flex-1 flex items-center justify-center gap-3 px-5 py-3 rounded-xl font-medium transition-all ${
-              activeTab === "temporary"
+            className={`group flex-1 flex items-center justify-center gap-3 px-5 py-3 rounded-xl font-medium transition-all ${activeTab === "temporary"
                 ? "bg-gradient-to-r from-primary to-primary/80 text-white shadow-sm"
                 : "text-gray-600 bg-gray-50 hover:bg-gray-100 border border-gray-200"
-            }`}
+              }`}
           >
             <div
-              className={`p-2 rounded-lg ${
-                activeTab === "temporary" ? "bg-white/20" : "bg-red-100"
-              }`}
+              className={`p-2 rounded-lg ${activeTab === "temporary" ? "bg-white/20" : "bg-red-100"
+                }`}
             >
               <FaUserClock
-                className={`text-sm ${
-                  activeTab === "temporary" ? "text-white" : "text-red-600"
-                }`}
+                className={`text-sm ${activeTab === "temporary" ? "text-white" : "text-red-600"
+                  }`}
               />
             </div>
             <span>حساب مشتریان موقت</span>

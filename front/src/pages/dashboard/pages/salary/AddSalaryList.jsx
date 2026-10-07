@@ -1,7 +1,10 @@
+// src/components/salary/AddSalaryList.jsx
 import React, { useState } from "react";
 import axios from "axios";
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
+import moment from "moment-jalaali";
+import DatePicker from "react-multi-date-picker";
+import persian from "react-date-object/calendars/persian";
+import persian_fa from "react-date-object/locales/persian_fa";
 import {
   FaFileInvoiceDollar,
   FaCalendarAlt,
@@ -12,17 +15,40 @@ import {
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
-/* Format a JS Date to YYYY.MM.DD */
-const formatDate = (date) => {
+moment.loadPersian({ usePersianDigits: false, dialect: "persian-modern" });
+
+/* ✅ Shamsi formatter — for display only */
+const formatShamsiDots = (date) => {
   if (!date) return "";
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}.${m}.${d}`;
+  try {
+    return moment(date).format("jYYYY.jMM.jDD");
+  } catch {
+    return "";
+  }
+};
+
+const formatShamsiLong = (date) => {
+  if (!date) return "";
+  try {
+    return moment(date).format("jDD jMMMM jYYYY");
+  } catch {
+    return "";
+  }
+};
+
+/* ✅ Gregorian formatter — for backend storage */
+const formatGregorianDots = (date) => {
+  if (!date) return "";
+  try {
+    return moment(date).format("YYYY.MM.DD");
+  } catch {
+    return "";
+  }
 };
 
 export default function AddSalaryList({ onSuccess, onCancel }) {
   const [name, setName] = useState("");
+  /* dateRange = [DateObject, DateObject] */
   const [dateRange, setDateRange] = useState([null, null]);
   const [startDate, endDate] = dateRange;
 
@@ -34,6 +60,14 @@ export default function AddSalaryList({ onSuccess, onCancel }) {
     setName("");
     setDateRange([null, null]);
     setError(null);
+  };
+
+  /* Convert DateObject → JS Date */
+  const toJSDate = (d) => {
+    if (!d) return null;
+    if (typeof d.toDate === "function") return d.toDate();
+    if (d instanceof Date) return d;
+    return null;
   };
 
   const handleSubmit = async (e) => {
@@ -49,7 +83,13 @@ export default function AddSalaryList({ onSuccess, onCancel }) {
       return;
     }
 
-    const range = `${formatDate(startDate)}-${formatDate(endDate)}`;
+    const startJs = toJSDate(startDate);
+    const endJs = toJSDate(endDate);
+
+    /* ✅ Backend receives GREGORIAN — "2026.09.23-2026.10.06" */
+    const range = `${formatGregorianDots(startJs)}-${formatGregorianDots(
+      endJs
+    )}`;
 
     setSubmitting(true);
     try {
@@ -70,14 +110,28 @@ export default function AddSalaryList({ onSuccess, onCancel }) {
     }
   };
 
-  /* Preview string shown under the picker */
-  const rangePreview =
-    startDate && endDate
-      ? `${formatDate(startDate)}-${formatDate(endDate)}`
+  /* ✅ Preview — Shamsi, for display only */
+  const startJs = toJSDate(startDate);
+  const endJs = toJSDate(endDate);
+
+  const rangePreviewShamsi =
+    startJs && endJs
+      ? `${formatShamsiDots(startJs)}-${formatShamsiDots(endJs)}`
       : "بازه تاریخی انتخاب نشده";
 
+  const rangePreviewLong =
+    startJs && endJs
+      ? `${formatShamsiLong(startJs)} تا ${formatShamsiLong(endJs)}`
+      : null;
+
+  /* Small hint showing what will actually be sent */
+  const rangePreviewGregorian =
+    startJs && endJs
+      ? `${formatGregorianDots(startJs)}-${formatGregorianDots(endJs)}`
+      : null;
+
   return (
-    <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden print:p-0">
+    <div className="bg-white min-h-[500px] rounded-2xl shadow-2xl border border-gray-100 overflow-hidden print:p-0">
       {/* Success Toast */}
       {successMessage && (
         <div className="fixed top-4 right-4 left-4 md:left-auto md:w-96 z-50 animate-slideDown">
@@ -127,14 +181,12 @@ export default function AddSalaryList({ onSuccess, onCancel }) {
 
       {/* Content */}
       <div className="p-6">
-        {/* Error */}
         {error && (
           <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
           </div>
         )}
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Name */}
@@ -151,29 +203,32 @@ export default function AddSalaryList({ onSuccess, onCancel }) {
               />
             </div>
 
-            {/* Date Range */}
+            {/* ✅ Shamsi Date Range Picker */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                <span className="text-red-500">*</span> بازه تاریخی
+                <span className="text-red-500">*</span> بازه تاریخی (هجری شمسی)
               </label>
               <div className="relative">
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 z-10 pointer-events-none">
                   <FaCalendarAlt />
                 </div>
                 <DatePicker
-                  selectsRange
-                  startDate={startDate}
-                  endDate={endDate}
-                  onChange={(update) => setDateRange(update)}
-                  dateFormat="yyyy.MM.dd"
-                  placeholderText="انتخاب بازه تاریخی"
-                  className="w-full border border-gray-300 rounded-xl pr-10 pl-4 py-3 focus:ring-2 focus:ring-primary focus:border-primary transition bg-white cursor-pointer"
-                  calendarClassName="font-sans"
-                  isClearable
-                  required
+                  range
+                  value={dateRange}
+                  onChange={setDateRange}
+                  calendar={persian}
+                  locale={persian_fa}
+                  calendarPosition="bottom-right"
+                  format="YYYY/MM/DD"
+                  editable={false}
+                  inputClass="w-full border border-gray-300 rounded-xl pr-10 pl-4 py-3 focus:ring-2 focus:ring-primary focus:border-primary transition bg-white cursor-pointer outline-none"
+                  placeholder="انتخاب بازه تاریخی"
+                  containerClassName="w-full"
                 />
               </div>
-              <p className="mt-2 text-xs text-gray-500">{rangePreview}</p>
+              <p className="mt-2 text-xs text-gray-500">
+                {rangePreviewLong || rangePreviewShamsi}
+              </p>
             </div>
           </div>
 
@@ -186,10 +241,20 @@ export default function AddSalaryList({ onSuccess, onCancel }) {
               </p>
             </div>
             <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
-              <p className="text-xs text-primary mb-1">بازه</p>
-              <p className="text-lg font-bold text-primary" dir="ltr">
-                {rangePreview}
+              <p className="text-xs text-primary mb-1">
+                بازه (هجری شمسی)
               </p>
+              <p className="text-lg font-bold text-primary" dir="ltr">
+                {rangePreviewShamsi}
+              </p>
+              {rangePreviewGregorian && (
+                <p className="text-[10px] text-gray-500 mt-2">
+                  میلادی (برای ذخیره):{" "}
+                  <span dir="ltr" className="font-mono">
+                    {rangePreviewGregorian}
+                  </span>
+                </p>
+              )}
             </div>
           </div>
 

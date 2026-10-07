@@ -13,7 +13,7 @@ import {
 import { FaUser, FaClock, FaTrash } from "react-icons/fa";
 import SalaryListRow, { DAYS, DAY_LABELS_FA } from "./SalaryListRow";
 import AddSalaryList from "./AddSalaryList";   // adjust path if needed
-
+import moment from "moment-jalaali";
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
 export default function SalaryLists({ onClose, setShowModel }) {
@@ -27,6 +27,7 @@ export default function SalaryLists({ onClose, setShowModel }) {
   const [loadingAttendance, setLoadingAttendance] = useState(false);
   const [savingId, setSavingId] = useState(null);
 
+  moment.loadPersian({ usePersianDigits: false, dialect: "persian-modern" });
   // ✅ Controls the "add new salary list" modal
   const [showAddForm, setShowAddForm] = useState(false);
 
@@ -49,6 +50,51 @@ export default function SalaryLists({ onClose, setShowModel }) {
   useEffect(() => {
     fetchLists();
   }, []);
+
+  /* ✅ Convert Gregorian range string "2026.09.23-2026.10.06" → Shamsi */
+  const formatRangeShamsi = (rangeStr) => {
+    if (!rangeStr) return "—";
+
+    const trimmed = String(rangeStr).trim();
+
+    /* Already Shamsi? Return as-is */
+    const firstYear = Number(trimmed.slice(0, 4));
+    if (firstYear >= 1300 && firstYear <= 1500 && trimmed.includes("/")) {
+      return trimmed;
+    }
+
+    /* Split on "-" or "–" or " تا " */
+    const parts = trimmed.split(/\s*[-–]\s*|\s+تا\s+/);
+    if (parts.length !== 2) {
+      /* Single date — try to convert */
+      const m = moment(parts[0], ["YYYY.MM.DD", "YYYY-MM-DD", "YYYY/MM/DD"], true);
+      if (m.isValid()) return m.format("jYYYY/jMM/jDD");
+      return trimmed;
+    }
+
+    const [fromStr, toStr] = parts;
+
+    const convert = (str) => {
+      if (!str) return "";
+      const formats = [
+        "YYYY.MM.DD",
+        "YYYY-MM-DD",
+        "YYYY/MM/DD",
+        "YYYY.MM.DDTHH:mm:ss",
+        "YYYY-MM-DDTHH:mm:ss",
+      ];
+      const m = moment(str.trim(), formats, true);
+      if (!m.isValid()) {
+        /* Fallback: try native Date parsing */
+        const dm = moment(new Date(str.trim()));
+        if (dm.isValid()) return dm.format("jYYYY/jMM/jDD");
+        return str.trim();
+      }
+      return m.format("jYYYY/jMM/jDD");
+    };
+
+    return `${convert(fromStr)} تا ${convert(toStr)}`;
+  };
 
   /* ---------------- Fetch attendance for a list ---------------- */
   const openAttendance = async (list) => {
@@ -202,13 +248,14 @@ export default function SalaryLists({ onClose, setShowModel }) {
     return new Intl.NumberFormat("en-US").format(Number(amount)) + " افغانی";
   };
 
+  /* ✅ Shamsi formatter */
   const formatDate = (dateString) => {
     if (!dateString) return "نامشخص";
-    return new Intl.DateTimeFormat("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    }).format(new Date(dateString));
+    try {
+      return moment(dateString).format("jYYYY/jMM/jDD");
+    } catch {
+      return "نامشخص";
+    }
   };
 
   /* ---------------- Loading state ---------------- */
@@ -356,11 +403,9 @@ export default function SalaryLists({ onClose, setShowModel }) {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <div
-                          className="flex items-center gap-2 text-sm text-gray-700"
-                        >
+                        <div className="flex items-center gap-2 text-sm text-gray-700">
                           <FaCalendarAlt className="text-gray-400" />
-                          {list.range || "—"}
+                          {formatRangeShamsi(list.range)}
                         </div>
                       </td>
                       <td className="px-6 py-4">
@@ -383,10 +428,10 @@ export default function SalaryLists({ onClose, setShowModel }) {
                       <td className="px-6 py-4">
                         <div
                           className={`text-sm font-semibold ${remaining > 0
-                              ? "text-red-600"
-                              : remaining < 0
-                                ? "text-yellow-600"
-                                : "text-green-600"
+                            ? "text-red-600"
+                            : remaining < 0
+                              ? "text-yellow-600"
+                              : "text-green-600"
                             }`}
                         >
                           {formatCurrency(remaining)}
@@ -415,8 +460,8 @@ export default function SalaryLists({ onClose, setShowModel }) {
                             onClick={(e) => deleteList(list, e)}
                             disabled={savingId === `list-${list.id}`}
                             className={`p-2 rounded-md transition ${savingId === `list-${list.id}`
-                                ? "text-gray-400 cursor-not-allowed"
-                                : "text-red-600 hover:bg-red-50"
+                              ? "text-gray-400 cursor-not-allowed"
+                              : "text-red-600 hover:bg-red-50"
                               }`}
                             title="حذف لیست"
                           >
@@ -469,7 +514,7 @@ export default function SalaryLists({ onClose, setShowModel }) {
                     حاضری: {selectedList.name}
                   </h2>
                   <p className="text-sm text-white/80" dir="ltr">
-                    {selectedList.range}
+                    {formatRangeShamsi(selectedList.range)}
                   </p>
                 </div>
               </div>
