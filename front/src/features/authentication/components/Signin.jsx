@@ -46,7 +46,7 @@ const Signin = () => {
                 />
               </div>
               <h1 className="text-3xl font-bold text-[#0F3A76] drop-shadow-sm">
-                کارگوی شما
+               زرین سپورت
               </h1>
             </div>
             <p className="text-gray-600 mt-2">لطفاً اطلاعات خود را وارد کنید</p>

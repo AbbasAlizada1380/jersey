@@ -2,10 +2,9 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import moment from "moment-jalaali";
-import { FaPhone, FaPrint, FaTimes, FaSpinner } from "react-icons/fa";
+import { FaPrint, FaTimes, FaSpinner } from "react-icons/fa";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
-const BRAND = import.meta.env.VITE_BRAND_NAME || "زرین سپورت";
 
 /* ✅ Load Persian locale once */
 moment.loadPersian({ usePersianDigits: false, dialect: "persian-modern" });
@@ -13,51 +12,38 @@ moment.loadPersian({ usePersianDigits: false, dialect: "persian-modern" });
 const PrintBill = ({
   isOpen,
   onClose,
-  billId,
-  bill: preloadedBill,
-  receipt,
+  receiptId,
+  receipt: preloadedReceipt,
   customer,
-  autoPrint,
+  autoPrint = false,
 }) => {
-  const [bill, setBill] = useState(preloadedBill || null);
+  const [receipt, setReceipt] = useState(preloadedReceipt || null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  /* =========================================================
-     Fetch bill whenever billId or isOpen changes
-     ========================================================= */
+  /* -------- Fetch receipt -------- */
   useEffect(() => {
     if (!isOpen) return;
-
-    // Fast path 1: full bill already given
-    if (preloadedBill) {
-      setBill(preloadedBill);
+    if (preloadedReceipt) {
+      setReceipt(preloadedReceipt);
       setError(null);
       return;
     }
-
-    // Fast path 2: a single receipt given → no fetch needed
-    if (receipt) {
-      setError(null);
-      return;
-    }
-
-    if (!billId) return;
+    if (!receiptId) return;
 
     let cancelled = false;
-
     (async () => {
       try {
         setLoading(true);
         setError(null);
-        const res = await axios.get(`${BASE_URL}/bills/${billId}`);
-        if (!cancelled) setBill(res.data);
+        const res = await axios.get(`${BASE_URL}/receipts/${receiptId}`);
+        if (!cancelled) setReceipt(res.data);
       } catch (err) {
         if (!cancelled) {
           setError(
             err?.response?.data?.message ||
               err.message ||
-              "خطا در دریافت اطلاعات بل"
+              "خطا در دریافت اطلاعات رسید"
           );
         }
       } finally {
@@ -68,76 +54,39 @@ const PrintBill = ({
     return () => {
       cancelled = true;
     };
-  }, [isOpen, billId, preloadedBill, receipt]);
+  }, [isOpen, receiptId, preloadedReceipt]);
 
-  /* =========================================================
-     Normalize: prefer explicit receipt, then fall back to bill
-     ========================================================= */
-  const effectiveBill = React.useMemo(() => {
-    // --- Mode 1: Single receipt ---
-    if (receipt) {
-      const amt = Number(receipt.amount || 0);
-      return {
-        id: receipt.id,
-        name:
-          customer?.fullname ||
-          customer?.name ||
-          receipt.customerInfo?.fullname ||
-          "—",
-        phoneNumber:
-          customer?.phoneNumber ||
-          customer?.phone_number ||
-          receipt.customerInfo?.phoneNumber ||
-          "—",
-        status: "receipt",
-        total: amt,
-        receipt: [amt],
-        remaind: 0,
-        createdAt: receipt.createdAt,
-        updatedAt: receipt.createdAt,
-        _isReceipt: true,
-      };
-    }
-
-    // --- Mode 2: Bill ---
-    if (bill) {
-      return { ...bill, _isReceipt: false };
-    }
-
-    return null;
-  }, [receipt, customer, bill]);
-
-  /* -------- Auto-print once data is loaded -------- */
+  /* -------- Auto print -------- */
   useEffect(() => {
-    if (autoPrint && isOpen && effectiveBill) {
+    if (autoPrint && isOpen && receipt) {
       const timer = setTimeout(() => window.print(), 500);
       return () => clearTimeout(timer);
     }
-  }, [autoPrint, isOpen, effectiveBill]);
+  }, [autoPrint, isOpen, receipt]);
 
   if (!isOpen) return null;
 
-  /* -------- Loading state -------- */
+  /* -------- Loading -------- */
   if (loading) {
     return (
       <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-50 p-4">
         <div className="bg-white rounded-xl px-6 py-4 flex items-center gap-3 shadow-lg">
-          <FaSpinner className="animate-spin text-primary" />
+          <FaSpinner className="animate-spin text-gray-700" />
           <span className="text-sm text-gray-700">در حال بارگذاری رسید…</span>
         </div>
       </div>
     );
   }
 
-  /* -------- Error / not found -------- */
-  if (error || !effectiveBill) {
+  /* -------- Error -------- */
+  if (error || !receipt) {
     return (
       <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-50 p-4">
         <div className="bg-white rounded-xl px-6 py-4 shadow-lg max-w-sm w-full text-center space-y-3">
-          <p className="text-sm text-red-600">{error || "بل یافت نشد"}</p>
+          <p className="text-sm text-gray-800">{error || "رسید یافت نشد"}</p>
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg inline-flex items-center gap-2"
+            className="px-4 py-2 bg-gray-800 hover:bg-gray-900 text-white rounded-lg inline-flex items-center gap-2"
           >
             <FaTimes size={14} /> بستن
           </button>
@@ -146,88 +95,77 @@ const PrintBill = ({
     );
   }
 
-  /* =========================================================
-     Extract display values
-     ========================================================= */
-  const receiptArr = Array.isArray(effectiveBill.receipt)
-    ? effectiveBill.receipt
-    : typeof effectiveBill.receipt === "number"
-    ? [effectiveBill.receipt]
-    : [];
-
-  const paid = receiptArr.reduce((a, b) => a + Number(b || 0), 0);
-  const total = Number(effectiveBill.total || 0);
-  const remained = Number(effectiveBill.remaind ?? total - paid);
-
-  /* ✅ Shamsi issue date */
-  const today = moment().format("jYYYY/jMM/jDD");
-  const billNumber = effectiveBill.id ? `${effectiveBill.id}` : "—";
+  /* -------- Normalize -------- */
+  const amount = Number(receipt.amount || 0);
+  const receiptNumber = receipt.id
+    ? `${receipt.id}`
+    : `REC-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
 
   const customerName =
-    effectiveBill.name ||
-    effectiveBill.customer?.fullname ||
-    effectiveBill.customer?.name ||
+    receipt.name ||
+    receipt.customer?.fullname ||
+    receipt.customer?.name ||
+    customer?.fullname ||
+    customer?.name ||
     "—";
+
   const customerPhone =
-    effectiveBill.phoneNumber ||
-    effectiveBill.customer?.phoneNumber ||
-    effectiveBill.customer?.phone_number ||
+    receipt.phoneNumber ||
+    receipt.customer?.phoneNumber ||
+    receipt.customer?.phone_number ||
+    customer?.phoneNumber ||
+    customer?.phone_number ||
     "—";
+
+  const today = moment(receipt.createdAt || new Date()).format(
+    "jYYYY/jMM/jDD"
+  );
 
   const formatNumber = (num) => Number(num || 0).toLocaleString("en-US");
   const formatCurrency = (num) => formatNumber(num) + " افغانی";
   const handlePrint = () => window.print();
 
-  /* =========================================================
-     Title & status label
-     ========================================================= */
-  const documentTitle = effectiveBill._isReceipt
-    ? "رسید پرداخت"
-    : "بل فروش";
-
-  const statusLabel = effectiveBill._isReceipt
-    ? "پرداخت موفق"
-    : effectiveBill.status === "paid"
-    ? "پرداخت شده"
-    : effectiveBill.status === "partial"
-    ? "پرداخت بخشی"
-    : "پرداخت نشده";
-
-  const statusClasses = effectiveBill._isReceipt
-    ? "bg-green-100 text-green-800"
-    : effectiveBill.status === "paid"
-    ? "bg-green-100 text-green-800"
-    : effectiveBill.status === "partial"
-    ? "bg-yellow-100 text-yellow-800"
-    : "bg-red-100 text-red-800";
-
   return (
     <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-50 p-4 print:bg-transparent print:p-0">
-      <div>
+      {/* ---------- Printable A5 page ---------- */}
+      <div
+        id="printable-area"
+        className="bg-white shadow-2xl overflow-hidden flex flex-col print:shadow-none"
+        style={{
+          width: "148mm",
+          height: "210mm",
+          direction: "rtl",
+          fontFamily: "'Vazirmatn', 'Tahoma', sans-serif",
+          color: "#111",
+        }}
+      >
         <div
-          id="printable-area"
-          className="bg-white shadow-2xl rounded-lg overflow-hidden flex flex-col print:shadow-none print:rounded-none"
-          style={{ width: "148mm", height: "210mm", direction: "rtl" }}
+          className="flex-1 flex flex-col"
+          style={{
+            paddingTop: "50mm",
+            paddingBottom: "30mm",
+            paddingLeft: "10mm",
+            paddingRight: "10mm",
+          }}
         >
-          {/* ============ Header ============ */}
-          <div className="bg-gradient-to-l from-primary to-primary/80 text-white p-4 text-center border-b-4 border-primary">
-            <h1 className="text-xl font-bold mb-1">{BRAND}</h1>
-            <p className="text-xs opacity-90 mb-1">{documentTitle}</p>
-            <div className="flex justify-between items-center mt-2 text-xs">
-              <span>شماره: {formatNumber(billNumber)}</span>
-              {/* ✅ Shamsi date */}
-              <span>تاریخ: {today}</span>
+          {/* -------- شماره رسید (top) -------- */}
+          <div className="mb-2 pr-8">
+            <div className="text-center gap-x-3 gap-y-0.5 text-[10px] leading-relaxed pt-1">
+              <div className="flex flex-col text-[10px] pb-1 gap-0.5">
+                <span>
+                  <span className="font-bold">شماره رسید:</span>{" "}
+                  {formatNumber(receiptNumber)}
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* ============ Customer ============ */}
-          <div className="p-3 border-b border-gray-200">
-            <h2 className="text-sm font-bold text-gray-700 mb-2 border-b pb-1 border-gray-300">
-              معلومات مشتری
-            </h2>
-            <div className="grid grid-cols-2 gap-2 text-xs">
+          {/* -------- Customer info (TOP of paper) -------- */}
+          <div className="mb-2 pr-8">
+            <div className="grid grid-cols-3 gap-x-3 gap-y-0.5 text-[10px] leading-relaxed pt-1">
               <div>
-                <span className="font-semibold">نام:</span> {customerName}
+                <span className="font-semibold">نام مشتری :</span>{" "}
+                {customerName}
               </div>
               <div>
                 <span className="font-semibold">شماره تماس:</span>{" "}
@@ -235,160 +173,136 @@ const PrintBill = ({
                   {customerPhone}
                 </span>
               </div>
+              <div className="flex flex-col text-[10px] pb-1 gap-0.5">
+                <span>
+                  <span className="font-bold">تاریخ:</span> {today}
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* ============ Status Badge ============ */}
-          <div className="px-3 pt-3">
-            <div className="flex justify-end">
-              <span
-                className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${statusClasses}`}
+          {/* -------- Receipt body -------- */}
+          <div className="flex-1">
+            <table
+              className="w-full text-[10px] border-collapse"
+              style={{ border: "1px solid #111" }}
+            >
+              <thead>
+                <tr style={{ backgroundColor: "#f3f3f3" }}>
+                  <th
+                    className="p-1 text-center font-bold"
+                    style={{ border: "1px solid #111", width: "8mm" }}
+                  >
+                    #
+                  </th>
+                  <th
+                    className="p-1 text-center font-bold"
+                    style={{ border: "1px solid #111" }}
+                  >
+                    مبلغ پرداختی
+                  </th>
+                  <th
+                    className="p-1 text-center font-bold"
+                    style={{ border: "1px solid #111", width: "24mm" }}
+                  >
+                    تاریخ ثبت
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td
+                    className="p-1 text-center"
+                    style={{ border: "1px solid #111" }}
+                  >
+                    {formatNumber(1)}
+                  </td>
+                  <td
+                    className="p-1 text-center font-semibold"
+                    style={{ border: "1px solid #111" }}
+                  >
+                    {formatCurrency(amount)}
+                  </td>
+                  <td
+                    className="p-1 text-center"
+                    style={{ border: "1px solid #111" }}
+                  >
+                    {today}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            {/* Description */}
+            {receipt.description && (
+              <div
+                className="mt-2 text-[10px] text-gray-700 p-2"
+                style={{ border: "1px dashed #999" }}
               >
-                {statusLabel}
-              </span>
-            </div>
-          </div>
-
-          {/* ============ Payment Table ============ */}
-          <div className="flex-1 p-3 overflow-auto">
-            {receiptArr.length > 0 ? (
-              <div className="mb-4">
-                <h2 className="text-sm font-bold text-gray-700 mb-2 border-b pb-1 border-gray-300">
-                  {effectiveBill._isReceipt
-                    ? "جزئیات پرداخت"
-                    : "پرداخت‌های انجام‌شده"}
-                </h2>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs border border-gray-300">
-                    <thead className="bg-primary/10">
-                      <tr>
-                        <th className="border border-gray-300 p-1 text-center w-8">
-                          #
-                        </th>
-                        <th className="border border-gray-300 p-1 text-center">
-                          مبلغ پرداختی
-                        </th>
-                        <th className="border border-gray-300 p-1 text-center w-24">
-                          تاریخ ثبت
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {receiptArr.map((amount, i) => (
-                        <tr key={i} className="hover:bg-primary/5">
-                          <td className="border border-gray-300 p-1 text-center">
-                            {formatNumber(i + 1)}
-                          </td>
-                          <td className="border border-gray-300 p-1 text-center font-semibold text-green-700">
-                            {formatCurrency(amount)}
-                          </td>
-                          <td className="border border-gray-300 p-1 text-center text-gray-600">
-                            {/* ✅ Shamsi date */}
-                            {moment(
-                              effectiveBill.updatedAt ||
-                                effectiveBill.createdAt
-                            ).format("jYYYY/jMM/jDD")}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-8 text-gray-500 text-sm border border-dashed border-gray-300 rounded-lg">
-                هیچ پرداختی ثبت نشده است
-              </div>
-            )}
-
-            {/* Description block */}
-            {effectiveBill._isReceipt && receipt?.description && (
-              <div className="mt-3 text-xs text-gray-600 border border-gray-200 rounded p-2 bg-gray-50">
                 <span className="font-semibold">توضیحات: </span>
                 {receipt.description}
               </div>
             )}
           </div>
 
-          {/* ============ Summary ============ */}
-          <div className="border-t border-gray-300 bg-gray-50 p-3">
-            <div className="space-y-1 text-xs">
-              <div className="flex justify-between font-bold border-t border-gray-300 pt-1 text-sm">
-                <span>{effectiveBill._isReceipt ? "مبلغ رسید:" : "مجموع کل:"}</span>
-                <span className="text-primary">{formatCurrency(total)}</span>
+          {/* -------- Summary: signature left, financials right -------- */}
+          <div className="mt-3 text-[10px] flex justify-between items-start gap-4">
+            {/* Financial data */}
+            <div className="min-w-[200px]">
+              <div
+                className="flex justify-between py-1 font-bold text-[11px]"
+                style={{ borderTop: "1.5px solid #111" }}
+              >
+                <span>مبلغ رسید:</span>
+                <span>{formatCurrency(amount)}</span>
               </div>
 
-              {!effectiveBill._isReceipt && (
-                <>
-                  <div className="flex justify-between">
-                    <span>مقدار پرداختی:</span>
-                    <span className="text-green-600">
-                      {formatCurrency(paid)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between font-bold border-t border-gray-300 pt-1">
-                    <span
-                      className={
-                        remained > 0 ? "text-red-600" : "text-green-600"
-                      }
-                    >
-                      باقیمانده:
-                    </span>
-                    <span
-                      className={
-                        remained > 0 ? "text-red-600" : "text-green-600"
-                      }
-                    >
-                      {formatCurrency(remained)}
-                    </span>
-                  </div>
-                </>
-              )}
-
-              {effectiveBill._isReceipt && (
-                <div className="flex justify-between text-green-700 font-semibold border-t border-gray-300 pt-1">
-                  <span>وضعیت:</span>
-                  <span>پرداخت با موفقیت دریافت شد ✓</span>
-                </div>
-              )}
+              <div
+                className="flex justify-between py-1 font-bold text-[11px]"
+                style={{ borderTop: "1px dashed #999" }}
+              >
+                <span>وضعیت:</span>
+                <span>پرداخت موفق ✓</span>
+              </div>
             </div>
-          </div>
 
-          {/* ============ Footer ============ */}
-          <div className="bg-primary text-white p-3 text-center text-xs">
-            <div className="flex items-center justify-center gap-2">
-              <FaPhone className="text-white" />
-              <span>تماس: 0777777777</span>
+            {/* Signature section */}
+            <div className="flex flex-col items-center justify-end pt-8">
+              <div className="w-32 border-t border-dashed border-gray-500 mt-8"></div>
+              <span className="text-[10px] text-gray-600 mt-1">امضاء</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ============ Action buttons (hidden in print) ============ */}
+      {/* -------- Buttons (screen only) -------- */}
       {!autoPrint && (
         <div className="absolute bottom-6 left-6 flex gap-3 print:hidden">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg flex items-center gap-2 shadow-lg transition-colors"
+            className="px-4 py-2 bg-gray-800 hover:bg-gray-900 text-white rounded-lg flex items-center gap-2 shadow-lg transition-colors"
           >
             <FaTimes size={14} /> بستن
           </button>
           <button
             onClick={handlePrint}
-            className="px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg flex items-center gap-2 shadow-lg transition-colors"
+            className="px-4 py-2 bg-gray-800 hover:bg-gray-900 text-white rounded-lg flex items-center gap-2 shadow-lg transition-colors"
           >
-            <FaPrint size={14} />
-            {effectiveBill._isReceipt ? "چاپ رسید" : "چاپ بل"}
+            <FaPrint size={14} /> چاپ رسید
           </button>
         </div>
       )}
 
-      {/* ============ Print CSS ============ */}
+      {/* -------- Print rules -------- */}
       <style jsx global>{`
         @media print {
           @page {
             size: A5 portrait;
             margin: 0;
+          }
+          html,
+          body {
+            background: #fff !important;
           }
           body * {
             visibility: hidden;
@@ -407,6 +321,10 @@ const PrintBill = ({
             padding: 0;
             box-shadow: none !important;
             border-radius: 0 !important;
+            background: #fff !important;
+            color: #000 !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
           }
           ::-webkit-scrollbar {
             display: none;

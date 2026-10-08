@@ -16,6 +16,7 @@ import {
 import { downloadCustomerBillsPDF } from "./CustomrsBillPDF";
 import PrintBill from "./PrintBill";
 import Pagination from "../../pagination/Pagination.jsx";
+import PrintOrderBill from "../order/PrintOrderBill.jsx";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 const LIMIT = 10;
@@ -71,7 +72,7 @@ const toISODate = (d) => {
   }
 };
 
-export default function CustomerBillsFilter({ customer }) {
+export default function CustomerBillsFilter({ customer }) {  
   /* ---------- Filters ---------- */
   const [selectedStatuses, setSelectedStatuses] = useState([]);
   const [from, setFrom] = useState(null);
@@ -164,7 +165,7 @@ export default function CustomerBillsFilter({ customer }) {
   /* ---------- Print ---------- */
   const handlePrint = (bill, e) => {
     e?.stopPropagation();
-    setPrintBill(bill);
+    setPrintBill(bill.id);    
     setPrintOpen(true);
   };
 
@@ -477,14 +478,14 @@ export default function CustomerBillsFilter({ customer }) {
       </div>
 
       {/* Print modal */}
-      <PrintBill
+      <PrintOrderBill
         isOpen={printOpen}
         onClose={() => {
           setPrintOpen(false);
           setPrintBill(null);
         }}
-        bill={printBill}
-        customer={customer}
+        orderId={printBill}
+        
       />
     </div>
   );
