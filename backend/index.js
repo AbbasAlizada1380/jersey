@@ -86,7 +86,7 @@ app.use("/database", databaseRoute);
 
 // Sync database and start server
 sequelize
-  .sync({ alter: true })
+  .sync({ alter: false })
   .then(() => {
     app.listen(port, () => {
       console.log(`✅ Server is running on port ${port}`);
